@@ -1,0 +1,37 @@
+{
+    "format_version": 2,
+    "metadata": {
+        "authors": [ "LJM12914" ]
+    },
+    "header": {
+        "name": "自定义命令",
+        "description": "基岩之上服务器模组。提供服务器所有的命令功能。",
+        "min_engine_version": [ 1, 21, 1 ],
+        "uuid": "03bdd0ea-7bfe-4645-8622-e6b984d79f6e",
+        "version": [ 1, 0, 0 ]
+    },
+    "modules": [
+        {
+            "type": "data",
+            "uuid": "c36f40ec-1d78-4f22-b3ff-f8c2b57a1783",
+            "version": [ 1, 0, 0 ]
+        },
+        {
+            "type": "script",
+            "uuid": "9ccb122c-f901-4e37-8d23-aa3d6e7ea22c",
+            "version": [ 1, 0, 0 ],
+            "language": "javascript",
+            "entry": "scripts/main.js"
+        }
+    ],
+    "dependencies": [
+        {
+            "module_name": "@minecraft/server",
+            "version": "1.12.0-beta"
+        },
+        {
+            "module_name": "@minecraft/server-ui",
+            "version": "1.1.0"
+        }
+    ]
+}
