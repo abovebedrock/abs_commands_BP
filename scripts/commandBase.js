@@ -17,7 +17,7 @@ let prefix = ".";
  *     args :argumentDef[];
  *     description :string;
  *     callback :(usedName :string, player :Player, args :Record<string, (string | number | boolean)>)=>boolean;
- *     tagRequired? :string[];
+ *     tagsRequired? :string[];
  *     hidden? :boolean;
  * }} Command
  * @type {Command[]}
@@ -27,16 +27,28 @@ const commands = [];
 //#region 命令注册
 /**注册命令，可选参数必须排在必选参数后面
  * @param {Command} args 函数参数
+ * @returns {boolean} 是否成功注册命令。
  */
 export function registerCommand(args){
+    if(args.names.length === 0){
+        world.sendMessage("§c内部错误。请报告管理员。");
+        console.error(`Found command with no names!`);
+        return false;
+    }
+    for(let i = 0; i < commands.length; i++) for(let j = 0; j < commands[i].names.length; j++) for(let k = 0; k < args.names.length; k++) if(commands[i].names[j] === args.names[k]){
+        world.sendMessage("§c内部错误。请报告管理员。");
+        console.error(`Duplicate name on [${commands[i].names.join(", ")}] and new [${args.names.join(", ")}]`);
+        return false;
+    }
     commands.push({
         names: args.names,
         args: args.args,
         description: args.description,
-        tagRequired: args.tagRequired,
+        tagsRequired: args.tagsRequired,
         hidden: args.hidden,
         callback: args.callback
     });
+    return true;
 }
 //#endregion
 
@@ -50,7 +62,7 @@ world.beforeEvents.chatSend.subscribe(data=>{
             raw = message.substring(1, message.length).split(" "),
             name = raw.shift();
         let firedCommand = false;
-        for(let i = 0; i < commands.length; i++) for(let j = 0; j < commands[i].names.length; j++) if(commands[i].names[j] === name){
+        for(let i = 0; i < commands.length; i++) for(let j = 0; j < commands[i].names.length; j++) if(commands[i].names[j] === name && checkTags(commands[i].tagsRequired, data.sender)){
             const
                 argDefs = commands[i].args,
                 /**@type {Record<string, (string | number | boolean)>}*/
@@ -70,8 +82,8 @@ world.beforeEvents.chatSend.subscribe(data=>{
                         else if(raw[k] !== undefined || !foundOptional) hasError = true;
                         break;
                     case "string":
-                        if(raw[k] !== "") argsToSend[argDefs[k].name] = raw[k];
-                        else if(raw[k] !== undefined || !foundOptional) hasError = true;
+                        if(raw[k] !== undefined && raw[k] !== "") argsToSend[argDefs[k].name] = raw[k];
+                        else if(!foundOptional) hasError = true;
                         break;
                     default:
                         console.error(`Illegal argument type in command ${name}: ${argDefs[k].name} is ${argDefs[k].type}`);
@@ -79,7 +91,7 @@ world.beforeEvents.chatSend.subscribe(data=>{
                         return;
                 }
                 if(hasError){
-                    errorString = `§c.${name}语法错误：意外的“${raw[k]}”出现在参数“${argDefs[k].name}”，应为${argDefs[k].type}类型`;
+                    errorString = `§c.${name}错误：意外的“${raw[k]}”出现在参数“${argDefs[k].name}”，应为${argDefs[k].type}类型`;
                     break;
                 }
             }
@@ -88,7 +100,7 @@ world.beforeEvents.chatSend.subscribe(data=>{
                 firedCommand = true;
             }
             else{
-                console.warn(`Player ${data.sender.name} executed command .${name} and occured an error: ${errorString}`);
+                console.warn(`${data.sender.name} executed .${name} occured error: ${errorString}`);
                 data.sender.sendMessage(errorString);
             }
             return;
@@ -96,31 +108,39 @@ world.beforeEvents.chatSend.subscribe(data=>{
         if(!firedCommand) data.sender.sendMessage(`§c命令不存在或执行权限不足：${name}。输入.help获取命令帮助。`);
         return;
     }
-    if(data.message[0] != prefix) console.log(`<${data.sender.name}>${data.message}`);
+    if(data.message[0] !== prefix) console.log(`<${data.sender.name}>${data.message}`);
 });
 
 registerCommand({
     names: ["h", "bz", "help"],
     description: "显示命令帮助。",
-    args: [],
-    callback: (_name, player)=>{
-        let validCommands = 0;
-        for(let i = 0; i < commands.length; i++) if(!commands[i].hidden && checkTags(commands[i].tagRequired, player)){
-            validCommands++;
-            let argString = "";
-            for(let j = 0; j < commands[i].args.length; j++){
-                if(!j) argString += " ";
-                const arg = commands[i].args[j];
-                argString += `${arg.optional ? "[" : "<"}${arg.name} :${arg.type}${arg.optional ? "]" : ">"}`;
-                if(j < commands[i].args.length - 1) argString += " ";
-            }
-            player.sendMessage(`${prefix}<${commands[i].names.join(" | ")}>${argString} —— ${commands[i].description}`);
+    args: [{
+        name: "wantsMore",
+        optional: true,
+        type: "boolean"
+    }],
+    callback: (_name, player, args)=>{
+        if(args.wantsMore ===  true){
+            player.sendMessage("§e§l——基岩服自定义命令使用手册——\nnouino");
         }
-        player.sendMessage(`§e列出完毕，共有 ${validCommands} 条命令。`);
-        player.sendMessage("§7<>内为必选项；[]内为可选项；|分隔的为多选一；:前为参数名，后为参数类型。");
+        else{
+            let validCommands = 0;
+            for(let i = 0; i < commands.length; i++) if(!commands[i].hidden && checkTags(commands[i].tagsRequired, player)){
+                validCommands++;
+                let argString = "";
+                for(let j = 0; j < commands[i].args.length; j++){
+                    if(!j) argString += " ";
+                    const arg = commands[i].args[j];
+                    argString += `${arg.optional ? "[" : "<"}${arg.name} :${arg.type}${arg.optional ? "]" : ">"}`;
+                    if(j < commands[i].args.length - 1) argString += " ";
+                }
+                player.sendMessage(`${prefix}${commands[i].names.length - 1 ? "<" : ""}${commands[i].names.join(" | ")}${commands[i].names.length - 1 ? ">" : ""}${argString} —— ${commands[i].description}`);
+            }
+            player.sendMessage(`§e列出完毕，共有 ${validCommands} 条命令。\n§7<>内为必选项；[]内为可选项；|分隔的为多选一；:前为参数名，后为参数类型。输入.h true获取更详细的帮助手册。`);
+        }
         return true;
-    }}
-);
+    }
+});
 
 /**检查玩家是否有权限看到并执行某个命令。
  * @param {string[] | undefined} tags 需要检查的标签集合，以或门连接。
@@ -137,13 +157,13 @@ const confirmStagePlayers = [];
 
 registerCommand({
     names: ["reset_all", "reset_all_confirm", "nope"],
-    description: "【仅限出现故障时使用】清除所有玩家关联的命令数据，如常用语等。",
+    description: "【仅限出现故障时使用】清除所有你关联的命令数据，如常用语等。",
     args: [],
     callback: (name, player)=>{
         if(name == "reset_all"){
-            if(confirmStagePlayers.includes(player.name)) player.sendMessage("§c错误：你已经在清除确认阶段了！请先输入.nope取消清除。");
+            if(confirmStagePlayers.includes(player.name)) player.sendMessage("§c你已经在清除确认阶段了！请先输入.nope取消清除。");
             else{
-                player.sendMessage(`§c§l你确定要清除所有你关联的数据吗？这可能会导致信息丢失或产生bug！确保你得到了可信的指导再这样做！如果你确认，请输入指令.reset_all_confirm；否则请输入.nope取消清除。`);
+                player.sendMessage(`§c§l你确定要清除所有你关联的数据吗？这可能会导致信息丢失或产生bug！确保你得到了可信的指导再这样做！如果你确认，请输入.reset_all_confirm；否则请输入.nope取消清除。`);
                 confirmStagePlayers.push(player.name);
             }
         }

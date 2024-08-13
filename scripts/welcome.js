@@ -22,9 +22,6 @@ registerCommand({
 world.afterEvents.playerSpawn.subscribe(data=>{
     if(data.initialSpawn) system.runTimeout(()=>{
         const player = world.getPlayers({name: data.player.name})[0];
-        if(player.getDynamicProperty("disableWelcome") != true){
-            player.sendMessage(`§6§l基岩之上服务器第八季`);
-            player.sendMessage(`§b欢迎玩家${player.name}，输入.h查看命令帮助，输入.j false关闭进服提示。`);
-        }
+        if(player.getDynamicProperty("disableWelcome") != true) player.sendMessage(`§6§l基岩之上服务器第八季\n§b欢迎玩家${player.name}，输入.h查看命令帮助，输入.j false关闭进服提示。`);
     }, 80);
 });

@@ -9,10 +9,7 @@ registerCommand({
     description: "显示时间量。",
     args: [],
     callback: (_name, player)=>{
-        system.runTimeout(()=>{
-            player.sendMessage(getTimeString(world.getAbsoluteTime(), "世界"));
-            player.sendMessage(getTimeString(system.currentTick, "服务器"));
-        }, Math.random() * 3);
+        system.runTimeout(()=>{player.sendMessage(`${getTimeString(world.getAbsoluteTime(), "世界")}\n${getTimeString(system.currentTick, "服务器")}`)}, Math.random() * 3);
         return true;
     }
 });

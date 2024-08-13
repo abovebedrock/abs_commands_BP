@@ -8,6 +8,7 @@ import { tridentInit } from "./trident";
 import { welcomeInit } from "./welcome";
 import { fstInit } from "./fst";
 import { debugInit } from "./debug";
+import { deathCoordsInit } from "./deathCoords";
 
 commandInit();
 welcomeInit();
@@ -17,5 +18,7 @@ messageInit();
 dayInit();
 tridentInit();
 debugInit();
+
+deathCoordsInit();
 
 loopCommandsInit();
