@@ -54,15 +54,23 @@ function removeSurvival(ids, warn){
         excludeGameModes: [GameMode.creative, GameMode.spectator]
     });
     for(let i = 0; i < players.length; i++){
-        const inventory = /**@type {EntityInventoryComponent | undefined}*/ (players[i].getComponent(EntityComponentTypes.Inventory));
+        const
+            inventory = /**@type {EntityInventoryComponent | undefined}*/ (players[i].getComponent(EntityComponentTypes.Inventory)),
+            //@ts-ignore
+            cursor = /**@type {PlayerCursorInventoryComponent | undefined}*/ (players[i].getComponent(EntityComponentTypes.CursorInventory));
         if(inventory && inventory.container){
             const container = inventory.container;
             for(let j = 0; j < container.size; j++) for(let k = 0; k < ids.length; k++){
-                const item = container.getItem(j);
+                const item = container.getItem(j), cursorItem = cursor?.item;
                 if(item && item.typeId.includes(ids[k])){
                     container.setItem(j);
                     console.error(`Illegal item ${item.typeId} x${item.amount} found in ${players[i].name} at (${players[i].location.x.toFixed(1)},${players[i].location.y.toFixed(1)},${players[i].location.z.toFixed(1)})`);
                     if(warn) players[i].sendMessage(`§c§l检测到违禁物品：${item.typeId.replace("minecraft:", "")}，已清除并上报！`);
+                }
+                if(cursorItem && cursorItem.typeId.includes(ids[k])){
+                    cursor.clear();
+                    console.error(`Illegal item ${cursorItem.typeId} x${cursorItem.amount} found in ${players[i].name} at (${players[i].location.x.toFixed(1)},${players[i].location.y.toFixed(1)},${players[i].location.z.toFixed(1)})`);
+                    if(warn) players[i].sendMessage(`§c§l检测到违禁物品：${cursorItem.typeId.replace("minecraft:", "")}，已清除并上报！`);
                 }
             }
         }

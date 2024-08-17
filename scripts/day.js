@@ -7,6 +7,7 @@ export function dayInit(){}
 registerCommand({
     names: ["d", "sj", "day", "time"],
     description: "显示时间量。",
+    document: "该命令向执行玩家显示服务器软件启动后主游戏线程进行的循环数（服务器游戏刻数）和服务器托管的世界被处理的循环数（世界游戏刻数）。这两个值一般来说有轻微差别，如果世界先在其他地方创建，再上传到服务器，则后者大于前者；如果服务器之前托管过其他世界，则前者大于后者。可以用于发现服务器的悠久历史。",
     args: [],
     callback: (_name, player)=>{
         system.runTimeout(()=>{player.sendMessage(`${getTimeString(world.getAbsoluteTime(), "世界")}\n${getTimeString(system.currentTick, "服务器")}`)}, Math.random() * 3);

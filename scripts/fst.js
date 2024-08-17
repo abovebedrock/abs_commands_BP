@@ -10,6 +10,7 @@ const maxFsts = 6, maxLength = 20;
 registerCommand({
     names: ["s", "cyy", "fst", "set", "szcyy", "setfst"],
     description: "打开常用语管理窗口。",
+    document: `需要关闭聊天栏查看。窗口包含若干按钮，前${maxFsts}个按钮上的文字表示第n个常用语目前的设置，“<未设置>”则为空位置。点击最后的按钮“删除所有常用语”，会弹出一个确认弹窗，确认后会将所有常用语清空。“关闭”按钮则关闭窗口。也可以点击右上角的“×”关闭窗口。`,
     args: [],
     callback: (_name, player)=>{
         player.sendMessage("常用语管理窗口已打开，请关闭聊天栏查看。");
@@ -54,7 +55,8 @@ function showMain(player){
 function showFstOp(player, index){
     const
         fst = /**@type {string | undefined}*/ (player.getDynamicProperty(`cyy${index}`)),
-        fstOpForm = new ModalFormData().title(`常用语${index}：${fst ?? "<未设置>"}`).textField("修改内容", "(不修改)").toggle("删除该常用语（优先级大于修改内容）", false);
+        //@ts-ignore
+        fstOpForm = new ModalFormData().title(`常用语${index}：${fst ?? "<未设置>"}`).textField("修改内容", "(不修改)").toggle("删除该常用语（优先级大于修改内容）", false).submitButton("确认");
     fstOpForm.show(player).then(response=>{
         if(response.cancelationReason == FormCancelationReason.UserBusy) system.run(()=>showFstOp(player, index));
         else if(response.formValues){
@@ -80,6 +82,7 @@ function showFstOp(player, index){
 registerCommand({
     names: ["a", "aaa", "send", "fscyy", "sendfst"],
     description: "发送常用语。",
+    document: `输入空格+对应的序号，即可让游戏向所有玩家发送模拟执行者聊天消息的一条信息，内容为设定的常用语。如果未设置或超出最大序号限制或不为正整数，则会报错。`,
     args: [{
         name: "number",
         optional: false,
@@ -87,7 +90,7 @@ registerCommand({
     }],
     callback: (_name, player, args)=>{
         const index = Math.floor(/**@type {number}*/ (args.number));
-        if(index > maxFsts) player.sendMessage(`您最多有${maxFsts}条常用语！`);
+        if(index > maxFsts) player.sendMessage(`最多只有${maxFsts}条常用语！`);
         else if(index <= 0) player.sendMessage(`§c错误：${index}不是有效的正整数。`);
         else{
             const fst = player.getDynamicProperty(`cyy${index}`);

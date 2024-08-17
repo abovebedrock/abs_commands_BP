@@ -1,7 +1,7 @@
 ﻿//@ts-check
 import { system, Player, world } from "@minecraft/server";
-import { ActionFormData, FormCancelationReason, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { registerCommand } from "./commandBase";
+import { ActionFormData, FormCancelationReason, ModalFormData } from "@minecraft/server-ui";
+import { prefix, registerCommand } from "./commandBase";
 
 export function messageInit(){}
 
@@ -21,6 +21,7 @@ const maxMessages = 2;
 registerCommand({
     names: ["m", "msg", "message"],
     description: "打开留言窗口。",
+    document: "需要关闭聊天栏查看。窗口包含四个按钮，完全可以顾名思义。发送方发送留言后，留言实际暂存于世界附加属性，因此发送方仍可以浏览自己发送的留言内容；发送方是否在线对留言的接收无影响。但是接收方一旦查看过留言，系统即删除该留言，留出空余位置供之后的留言，意味着双方均在接收方查看一次留言后无法再次浏览内容，这种阅后即焚的机制虽然比较麻烦（需要当即屏幕截图保存信息），但在提高安全性的同时也提高了开发效率，短期之内应该不会修改。",
     args: [],
     callback: (_name, player)=>{
         player.sendMessage("留言窗口已打开，请关闭聊天栏查看。");
@@ -29,20 +30,19 @@ registerCommand({
     }
 });
 
-
 /**进入留言主窗口。
  * @param {Player} player
  */
 function showMain(player){
     const
         info = getUnreadInfo(player),
-        mainForm = new ActionFormData().title("留言").button("发送留言", "textures/ui/newOffersIcon").button(`您的未读留言§l（${info.length}条）`, "textures/ui/FriendsDiversity").button("已发送的未读留言", "textures/ui/mute_off").button("关闭", "textures/ui/crossout");
+        mainForm = new ActionFormData().title("留言").button("发送留言", "textures/ui/newOffersIcon").button(`收到的未读留言§l（${info.length}条）`, "textures/ui/FriendsDiversity").button("已发送的未读留言", "textures/ui/mute_off").button("关闭", "textures/ui/crossout");
     mainForm.show(player).then(response=>{
         if(response.cancelationReason === FormCancelationReason.UserBusy) system.run(()=>showMain(player));
         else if(response.selection === 0) showSendSelect(player);
         else if(response.selection === 1){
             if(info.length) showReadMain(player, 0);
-            else world.sendMessage("无未读留言。");
+            else world.sendMessage("§e目前无未读留言。");
         }
         else if(response.selection === 2) showSent(player);
     });
@@ -54,7 +54,8 @@ function showMain(player){
 function showSendSelect(player){
     const
         filteredPlayers = ["§7", ...absPlayerNames.filter(value=>!world.getPlayers({name: value}).length)],
-        selectForm = new ModalFormData().title("选择玩家").dropdown("选择接收玩家：", filteredPlayers);
+        //@ts-ignore
+        selectForm = new ModalFormData().title("选择玩家").dropdown("选择接收玩家：", filteredPlayers).submitButton("确认");
     selectForm.show(player).then(selectResponse=>{
         if(!selectResponse.canceled && selectResponse.formValues){
             const target = filteredPlayers[/**@type {number}*/(selectResponse.formValues[0])];
@@ -72,7 +73,8 @@ function showSendEdit(player, target){
     let foundEmpty = false;
     for(let i = 1; i <= maxMessages; i++) if(world.getDynamicProperty(`${target}#${player.name}#${i}`) === undefined){
         foundEmpty = true;
-        const sendForm = new ModalFormData().title("编辑内容").textField(`发送给${target}：`, "输入留言内容");
+        //@ts-ignore
+        const sendForm = new ModalFormData().title("编辑内容").textField(`发送给${target}：`, "输入留言内容").submitButton("发送");
         sendForm.show(player).then(sendResponse=>{
             const formValues = sendResponse.formValues;
             if(!sendResponse.canceled && formValues){
@@ -124,7 +126,7 @@ function showSent(player){
 world.afterEvents.playerSpawn.subscribe(data=>{
     if(data.initialSpawn) system.runTimeout(()=>{
         const info = getUnreadInfo(data.player);
-        if(info.length) data.player.sendMessage(`§e§l您有${info.length}条未读留言，输入.m查看。`);
+        if(info.length) data.player.sendMessage(`§e§l你有${info.length}条未读留言，输入${prefix}m查看。`);
     }, 81);
 });
 

@@ -1,11 +1,13 @@
 ﻿//@ts-check
-import { Player, system, world } from "@minecraft/server";
+import { Player, world } from "@minecraft/server";
 
 export function commandInit(){}
 
 //#region 前缀
-let prefix = ".";
+export const prefix = ".";
+//#endregion
 
+//#region 命令注册与存储
 /**命令存储数组
  * @typedef {{
  *     name :string;
@@ -19,12 +21,12 @@ let prefix = ".";
  *     callback :(usedName :string, player :Player, args :Record<string, (string | number | boolean)>)=>boolean;
  *     tagsRequired? :string[];
  *     hidden? :boolean;
+ *     document? :string;
  * }} Command
  * @type {Command[]}
  */
 const commands = [];
 
-//#region 命令注册
 /**注册命令，可选参数必须排在必选参数后面
  * @param {Command} args 函数参数
  * @returns {boolean} 是否成功注册命令。
@@ -46,13 +48,14 @@ export function registerCommand(args){
         description: args.description,
         tagsRequired: args.tagsRequired,
         hidden: args.hidden,
-        callback: args.callback
+        callback: args.callback,
+        document: args.document
     });
     return true;
 }
 //#endregion
 
-
+//#region 命令执行
 //@ts-ignore 扩展给我更新！
 world.beforeEvents.chatSend.subscribe(data=>{
     if(!data.target && data.message[0] === prefix){
@@ -91,7 +94,7 @@ world.beforeEvents.chatSend.subscribe(data=>{
                         return;
                 }
                 if(hasError){
-                    errorString = `§c.${name}错误：意外的“${raw[k]}”出现在参数“${argDefs[k].name}”，应为${argDefs[k].type}类型`;
+                    errorString = `§c${prefix}${name}错误：意外的“${raw[k]}”出现在参数“${argDefs[k].name}”，应为${argDefs[k].type}类型`;
                     break;
                 }
             }
@@ -100,46 +103,15 @@ world.beforeEvents.chatSend.subscribe(data=>{
                 firedCommand = true;
             }
             else{
-                console.warn(`${data.sender.name} executed .${name} occured error: ${errorString}`);
+                console.warn(`${data.sender.name} executed ${prefix}${name} occured error: ${errorString}`);
                 data.sender.sendMessage(errorString);
             }
             return;
         }
-        if(!firedCommand) data.sender.sendMessage(`§c命令不存在或执行权限不足：${name}。输入.help获取命令帮助。`);
+        if(!firedCommand) data.sender.sendMessage(`§c命令不存在或执行权限不足：${name}。输入${prefix}help获取命令帮助。`);
         return;
     }
     if(data.message[0] !== prefix) console.log(`<${data.sender.name}>${data.message}`);
-});
-
-registerCommand({
-    names: ["h", "bz", "help"],
-    description: "显示命令帮助。",
-    args: [{
-        name: "wantsMore",
-        optional: true,
-        type: "boolean"
-    }],
-    callback: (_name, player, args)=>{
-        if(args.wantsMore ===  true){
-            player.sendMessage("§e§l——基岩服自定义命令使用手册——\nnouino");
-        }
-        else{
-            let validCommands = 0;
-            for(let i = 0; i < commands.length; i++) if(!commands[i].hidden && checkTags(commands[i].tagsRequired, player)){
-                validCommands++;
-                let argString = "";
-                for(let j = 0; j < commands[i].args.length; j++){
-                    if(!j) argString += " ";
-                    const arg = commands[i].args[j];
-                    argString += `${arg.optional ? "[" : "<"}${arg.name} :${arg.type}${arg.optional ? "]" : ">"}`;
-                    if(j < commands[i].args.length - 1) argString += " ";
-                }
-                player.sendMessage(`${prefix}${commands[i].names.length - 1 ? "<" : ""}${commands[i].names.join(" | ")}${commands[i].names.length - 1 ? ">" : ""}${argString} —— ${commands[i].description}`);
-            }
-            player.sendMessage(`§e列出完毕，共有 ${validCommands} 条命令。\n§7<>内为必选项；[]内为可选项；|分隔的为多选一；:前为参数名，后为参数类型。输入.h true获取更详细的帮助手册。`);
-        }
-        return true;
-    }
 });
 
 /**检查玩家是否有权限看到并执行某个命令。
@@ -152,18 +124,74 @@ function checkTags(tags, player){
     for(let i = 0; i < tags.length; i++) if(player.hasTag(tags[i])) return true;
     return false;
 }
+//#endregion
 
+//#region 帮助
+registerCommand({
+    names: ["h", "bz", "help"],
+    description: "显示命令帮助。",
+    document: "该命令遍历所有注册的命令，筛走本玩家无权执行的和隐藏的命令，并将它们的所有名称、所有参数及类型以及描述打印给玩家。用于给玩家了解自己能执行的命令和它们的简短内容。",
+    args: [{
+        name: "wantsMore",
+        optional: true,
+        type: "boolean"
+    }],
+    callback: (_name, player, args)=>{
+        if(args.wantsMore === true){
+            player.sendMessage("§e§l——基岩服自定义命令详细使用手册——");
+            player.sendMessage(`自定义命令是一个插件，用于给玩家执行更多功能。和内置命令一样，需要输入前置符号才会触发（内置命令为“/”，自定义命令为“${prefix}”。）`);
+            player.sendMessage(`对于详细的命令描述和机制，推荐输入${prefix}document查看，也有以下几种游戏外部方式可以获得：\n1. 在QQ群内查找相关资料。\n2. 自行查阅GitHub源代码（https://github.com/abovebedrock/abs_commands_BP）。\n3. （即将到来）在基岩服官网命令解释板块查阅资料。\n4. 直接问开发者（不推荐）。`);
+        }
+        else{
+            let validCommands = 0;
+            player.sendMessage("§e§l——基岩服自定义命令帮助——");
+            for(let i = 0; i < commands.length; i++) if(!commands[i].hidden && checkTags(commands[i].tagsRequired, player)){
+                validCommands++;
+                let argString = "";
+                for(let j = 0; j < commands[i].args.length; j++){
+                    if(!j) argString += " ";
+                    const arg = commands[i].args[j];
+                    argString += `${arg.optional ? "[" : "<"}${arg.name} :${arg.type}${arg.optional ? "]" : ">"}`;
+                    if(j < commands[i].args.length - 1) argString += " ";
+                }
+                player.sendMessage(`${prefix}${commands[i].names.length - 1 ? "<" : ""}${commands[i].names.join(" | ")}${commands[i].names.length - 1 ? ">" : ""}${argString} —— ${commands[i].description}`);
+            }
+            player.sendMessage(`§e列出完毕，共有 ${validCommands} 条命令。\n§7<>内为必选项；[]内为可选项；|分隔的为多选一；:前为参数名，后为参数类型。\n§l输入${prefix}h true获取更详细的帮助手册。`);
+        }
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["wd", "document"],
+    description: "显示命令完整文档。",
+    document: "该命令遍历所有注册的命令，筛走本玩家不能执行的和隐藏的命令，并将它们的所有名称、描述和详细文档全部打印给玩家，让玩家有对自己能执行的命令的全面了解。",
+    args: [],
+    callback: (_name, player)=>{
+        player.sendMessage("§e§l——基岩服自定义命令完全文档——");
+        for(let i = 0; i < commands.length; i++) if(!commands[i].hidden && checkTags(commands[i].tagsRequired, player) && commands[i].document){
+            player.sendMessage(`${prefix}${commands[i].names.length - 1 ? "<" : ""}${commands[i].names.join(" | ")}${commands[i].names.length - 1 ? ">" : ""} —— ${commands[i].description}${/**@type {string}*/ (commands[i].document)}`);
+            player.sendMessage("§7————————");
+        }
+        player.sendMessage(`列出完毕。帮助：${prefix}h，更多帮助：${prefix}h true，文档：${prefix}document。`);
+        return true;
+    }
+});
+//#endregion
+
+//#region 玩家自助重置
 const confirmStagePlayers = [];
 
 registerCommand({
     names: ["reset_all", "reset_all_confirm", "nope"],
     description: "【仅限出现故障时使用】清除所有你关联的命令数据，如常用语等。",
+    document: `本命令仅限在玩家数据出现问题，导致玩家游玩出现异常时由玩家使用。一般情况下切勿使用。会删除所有玩家的附加属性，包括某些需要游戏内工作得来的属性，比如追溯指针交换的死亡坐标显示。使用该命令前，请务必咨询开发者！由于本命令的危险性，设置了两步验证法。先输入${prefix}reset_all启动重置进程，再输入${prefix}reset_all_confirm确认，完成重置。如果并不确认，可以输入${prefix}nope取消进程。不在进程中输入${prefix}reset_all_confirm或${prefix}nope，或者在进程中输入${prefix}reset_all都是无效的。`,
     args: [],
     callback: (name, player)=>{
         if(name == "reset_all"){
-            if(confirmStagePlayers.includes(player.name)) player.sendMessage("§c你已经在清除确认阶段了！请先输入.nope取消清除。");
+            if(confirmStagePlayers.includes(player.name)) player.sendMessage(`§c你已经在清除确认阶段了！请先输入${prefix}nope取消清除。`);
             else{
-                player.sendMessage(`§c§l你确定要清除所有你关联的数据吗？这可能会导致信息丢失或产生bug！确保你得到了可信的指导再这样做！如果你确认，请输入.reset_all_confirm；否则请输入.nope取消清除。`);
+                player.sendMessage(`§c§l你确定要清除所有你关联的自定义命令存储的数据吗？这可能会导致权限丢失、信息丢失或产生bug！确保你得到了可信的指导再这样做！如果你确认，请输入${prefix}reset_all_confirm；否则请输入${prefix}nope取消清除。`);
                 confirmStagePlayers.push(player.name);
             }
         }
@@ -173,15 +201,225 @@ registerCommand({
                 player.sendMessage("§e已经清除所有你关联的数据。建议重新进入游戏，以避免可能的bug。");
                 confirmStagePlayers.splice(confirmStagePlayers.indexOf(player.name), 1);
             }
-            else player.sendMessage("§c错误：请输入.reset_all开始清除数据。");
+            else player.sendMessage(`§c错误：请输入${prefix}reset_all开始清除数据。`);
         }
         else if(name == "nope"){
             if(confirmStagePlayers.includes(player.name)){
                 player.sendMessage("已经退出数据清除。");
                 confirmStagePlayers.splice(confirmStagePlayers.indexOf(player.name), 1);
             }
-            else player.sendMessage("§c错误：请输入.reset_all开始清除数据。");
+            else player.sendMessage(`§c错误：请输入${prefix}reset_all开始清除数据。`);
         }
         return true;
     }
 });
+//#endregion
+
+//#region 调试命令
+registerCommand({
+    names: ["gpp"],
+    description: "获取玩家的附加属性。",
+    tagsRequired: ["dev"],
+    args: [
+        {
+            name: "player",
+            optional: false,
+            type: "string"
+        },
+        {
+            name: "property",
+            optional: false,
+            type: "string"
+        }
+    ],
+    callback: (_name, player, args)=>{
+        const target = world.getPlayers({name: /**@type {string}*/ (args.player)});
+        if(target.length === 0) player.sendMessage("§c玩家不在线");
+        else{
+            const content = target[0].getDynamicProperty(/**@type {string}*/ (args.property));
+            switch(typeof content){
+                case "string":
+                case "number":
+                    player.sendMessage(`${args.property}： ${content}`);
+                    break;
+                case "boolean":
+                    player.sendMessage(`${args.property}： ${content}\nreal boolean!`);
+                    break;
+                case "undefined":
+                    player.sendMessage(`${args.property}： undefined\nreal undefined!`);
+                    break;
+                case "object":
+                    player.sendMessage(`${args.property}： ${content.x}, ${content.y}, ${content.z}\nreal Vector3!`);
+                    break;
+            }
+        }
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["spp"],
+    description: "设置玩家的附加属性，undefined6，true6，false6，不支持坐标。",
+    tagsRequired: ["dev"],
+    args: [
+        {
+            name: "player",
+            optional: false,
+            type: "string"
+        },
+        {
+            name: "property",
+            optional: false,
+            type: "string"
+        },
+        {
+            name: "value",
+            optional: false,
+            type: "string"
+        }
+    ],
+    callback: (_name, player, args)=>{
+        const target = world.getPlayers({name: /**@type {string}*/ (args.player)});
+        if(target.length === 0) player.sendMessage("§c玩家不在线");
+        else{
+            if(args.value === "undefined6") target[0].setDynamicProperty(/**@type {string}*/ (args.property), undefined);
+            else if(args.value === "true6") target[0].setDynamicProperty(/**@type {string}*/ (args.property), true);
+            else if(args.value === "false6") target[0].setDynamicProperty(/**@type {string}*/ (args.property), false);
+            else target[0].setDynamicProperty(/**@type {string}*/ (args.property), args.value);
+            player.sendMessage(`成功设置${target[0].name}的附加属性${args.property}为${args.value}。`);
+        }
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["cpp"],
+    description: "清除玩家的附加属性。",
+    tagsRequired: ["dev"],
+    args: [{
+        name: "player",
+        optional: false,
+        type: "string"
+    }],
+    callback: (_name, player, args)=>{
+        const target = world.getPlayers({name: /**@type {string}*/ (args.player)});
+        if(target.length === 0) player.sendMessage("§c玩家不在线");
+        else{
+            target[0].clearDynamicProperties();
+            player.sendMessage(`成功清除${target[0].name}的附加属性。`);
+        }
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["qpp"],
+    description: "查询玩家的附加属性信息。",
+    tagsRequired: ["dev"],
+    args: [{
+        name: "player",
+        optional: false,
+        type: "string"
+    }],
+    callback: (_name, player, args)=>{
+        const target = world.getPlayers({name: /**@type {string}*/ (args.player)});
+        if(target.length === 0) player.sendMessage("§c玩家不在线");
+        else{
+            player.sendMessage(`所有ID：${[target[0].getDynamicPropertyIds().join(",")]}`);
+            player.sendMessage(`占用大小：${target[0].getDynamicPropertyTotalByteCount()}`);
+        }
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["gwp"],
+    description: "获取世界的附加属性。",
+    tagsRequired: ["dev"],
+    args: [{
+        name: "property",
+        optional: false,
+        type: "string"
+    }],
+    callback: (_name, player, args)=>{
+        const content = world.getDynamicProperty(/**@type {string}*/ (args.property));
+        switch(typeof content){
+            case "string":
+            case "number":
+                player.sendMessage(`${args.property}： ${content}`);
+                break;
+            case "boolean":
+                player.sendMessage(`${args.property}： ${content}\nreal boolean!`);
+                break;
+            case "undefined":
+                player.sendMessage(`${args.property}： undefined\nreal undefined!`);
+                break;
+            case "object":
+                player.sendMessage(`${args.property}： ${content.x}, ${content.y}, ${content.z}\nreal Vector3!`);
+                break;
+        }
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["swp"],
+    description: "设置世界的附加属性，undefined6，true6，false6，不支持坐标。",
+    tagsRequired: ["dev"],
+    args: [
+        {
+            name: "property",
+            optional: false,
+            type: "string"
+        },
+        {
+            name: "value",
+            optional: false,
+            type: "string"
+        }
+    ],
+    callback: (_name, player, args)=>{
+        if(args.value === "undefined6") world.setDynamicProperty(/**@type {string}*/ (args.property), undefined);
+        else if(args.value === "true6") world.setDynamicProperty(/**@type {string}*/ (args.property), true);
+        else if(args.value === "false6") world.setDynamicProperty(/**@type {string}*/ (args.property), false);
+        else world.setDynamicProperty(/**@type {string}*/ (args.property), args.value);
+        player.sendMessage(`成功设置世界附加属性${args.property}为${args.value}。`);
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["cwp"],
+    description: "清除世界的附加属性。",
+    tagsRequired: ["dev"],
+    args: [],
+    callback: (_name, player)=>{
+        world.clearDynamicProperties();
+        player.sendMessage("成功清除世界附加属性。");
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["qwp"],
+    description: "查询世界的附加属性信息。",
+    tagsRequired: ["dev"],
+    args: [],
+    callback: (_name, player)=>{
+        player.sendMessage(`所有ID：${[world.getDynamicPropertyIds().join(" ")]}`);
+        player.sendMessage(`占用大小：${world.getDynamicPropertyTotalByteCount()}`);
+        return true;
+    }
+});
+
+registerCommand({
+    names: ["eval"],
+    description: "模板命令，执行在回调中的任何代码。",
+    tagsRequired: ["dev"],
+    args: [],
+    callback: (_name, player)=>{
+        player.sendMessage("");
+        return true;
+    }
+});
+//#endregion
