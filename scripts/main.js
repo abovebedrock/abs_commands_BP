@@ -10,6 +10,7 @@ import { dayInit } from "./day";
 import { tridentInit } from "./trident";
 import { chestlockInit } from "./chestlock";
 import { loopCommandsInit } from "./loopCommands";
+import { aboutInit } from "./about";
 
 commandInit();
 welcomeInit();
@@ -20,6 +21,7 @@ messageInit();
 deathCoordsInit();
 dayInit();
 tridentInit();
+aboutInit();
 
 chestlockInit();
 
