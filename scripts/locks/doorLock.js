@@ -120,7 +120,7 @@ world.beforeEvents.playerInteractWithBlock.subscribe(
                     )
                 ){
                     data.cancel = true;
-                    cancelPlayerMove(upperBlock, lowerBlock);
+                    //cancelPlayerMove(upperBlock, lowerBlock);
                     if(!hideFailure) player.sendMessage("§c门已上锁，请用正确的（不祥）试炼钥匙解锁！");
                     system.run(()=>{
                         upperBlock.dimension.playSound("vault.insert_item_fail", center, {
