@@ -137,11 +137,7 @@ registerCommand({
         type: "boolean"
     }],
     callback: (_name, player, args)=>{
-        if(args.wantsMore === true){
-            player.sendMessage("§e§l——基岩服自定义命令详细使用手册——");
-            player.sendMessage(`自定义命令是一个插件，用于给玩家执行更多功能。和内置命令一样，需要输入前置符号才会触发（内置命令为“/”，自定义命令为“${prefix}”。）`);
-            player.sendMessage(`对于详细的命令描述和机制，推荐输入${prefix}document查看，也有以下几种游戏外部方式可以获得：\n1. 在QQ群内查找相关资料。\n2. 自行查阅GitHub源代码（https://github.com/abovebedrock/abs_commands_BP）。\n3. （即将到来）在基岩服官网命令解释板块查阅资料。\n4. 直接问开发者（不推荐）。`);
-        }
+        if(args.wantsMore === true) player.sendMessage(`§e§l——基岩服自定义命令详细使用手册——§r§f\n自定义命令是一个插件，用于给玩家执行更多功能。和内置命令一样，需要输入前置符号才会触发（内置命令为“/”，自定义命令为“${prefix}”。）\n命令可能有参数，用于进一步细化操作。命令和参数、参数和参数之间§6使用一个空格§f隔开。\n参数有三种类型：§6string§f字符串、§6number§f数字、§6boolean§f布尔值（即§6true§f或§6false§f）。在${prefix}h的消息中，每个参数会以§6名称:类型§f的形式出现。\n参数可能是可选的（以[]标识），即可以不提供本参数，可选参数只能在必选参数（以<>标识）之后出现。\n§l当出现多个可选参数时，如果你需要设置更后的可选参数，你必须提供在这之前的所有可选参数，因为插件是按顺序匹配参数的，只提供后面的可选参数会导致插件匹配它到前面的可选参数。§r§f\n对于详细的命令描述和机制，可输入 ${prefix}document <命令名称> 查看。不带命令名称参数，将输出当前所有命令的详细文档（比较长）。也有以下几种游戏外部方式可以获得：\n1. 在QQ群内查找相关资料。\n2. 自行查阅GitHub源代码（https://github.com/abovebedrock/abs_commands_BP）。\n3. （即将到来）在基岩服官网命令解释板块查阅资料。\n4. 直接问开发者（不推荐）。`);
         else{
             let validCommands = 0;
             player.sendMessage("§e§l——基岩服自定义命令帮助——");
@@ -165,15 +161,30 @@ registerCommand({
 registerCommand({
     names: ["wd", "document"],
     description: "显示命令完整文档。",
-    document: "该命令遍历所有注册的命令，筛走本玩家不能执行的和隐藏的命令，并将它们的所有名称、描述和详细文档全部打印给玩家，让玩家有对自己能执行的命令的全面了解。",
-    args: [],
-    callback: (_name, player)=>{
-        player.sendMessage("§e§l——基岩服自定义命令完全文档——");
-        for(let i = 0; i < commands.length; i++) if(!commands[i].hidden && checkTags(commands[i].tagsRequired, player) && commands[i].document){
-            player.sendMessage(`${prefix}${commands[i].names.length - 1 ? "<" : ""}${commands[i].names.join(" | ")}${commands[i].names.length - 1 ? ">" : ""} —— ${commands[i].description}${/**@type {string}*/ (commands[i].document)}`);
-            player.sendMessage("§7————————");
+    document: "该命令如果输入commandName参数，则会查找是否有存在该命令名称的命令，并打印该命令的文档；如果输入参数并未找到相应命令，则报错；如果没有输入，则遍历所有注册的命令，筛走本玩家不能执行的和隐藏的命令，并将它们的所有名称、描述和详细文档全部打印给玩家，让玩家有对自己能执行的命令的全面了解。",
+    args: [{
+        name: "commandName",
+        optional: true,
+        type: "string"
+    }],
+    callback: (_name, player, args)=>{
+        const name = /**@type {string | undefined}*/ (args.commandName);
+        if(name === undefined){
+            player.sendMessage("§e§l——基岩服自定义命令完全文档——");
+            for(let i = 0; i < commands.length; i++) if(!commands[i].hidden && checkTags(commands[i].tagsRequired, player) && commands[i].document){
+                player.sendMessage(`${prefix}${commands[i].names.length - 1 ? "<" : ""}${commands[i].names.join(" | ")}${commands[i].names.length - 1 ? ">" : ""} —— ${commands[i].description}${/**@type {string}*/ (commands[i].document)}`);
+                player.sendMessage("§7————————");
+            }
+            player.sendMessage(`列出完毕。帮助：${prefix}h，更多帮助：${prefix}h true，文档：${prefix}document <命令名称>。`);
         }
-        player.sendMessage(`列出完毕。帮助：${prefix}h，更多帮助：${prefix}h true，文档：${prefix}document。`);
+        else{
+            for(let i = 0; i < commands.length; i++) for(let j = 0; j < commands[i].names.length; j++) if(commands[i].names[j] === name){
+                player.sendMessage(`§e§l关于${prefix}${name}的文档：`);
+                player.sendMessage(`${prefix}${commands[i].names.length - 1 ? "<" : ""}${commands[i].names.join(" | ")}${commands[i].names.length - 1 ? ">" : ""} —— ${commands[i].description}${commands[i].document ? commands[i].document : ""}`);
+                return true;
+            }
+            player.sendMessage(`§c错误：未找到名称为${name}的命令。`);
+        }
         return true;
     }
 });
@@ -414,11 +425,10 @@ registerCommand({
 
 registerCommand({
     names: ["eval"],
-    description: "模板命令，执行在回调中的任何代码。",
+    description: "空壳命令，执行在回调中的任何代码。",
     tagsRequired: ["dev"],
     args: [],
     callback: (_name, player)=>{
-        player.sendMessage("");
         return true;
     }
 });

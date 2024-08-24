@@ -8,15 +8,15 @@ export function messageInit(){}
 const absPlayerNames = [
     "LJM12914",
     "DK6666Orange",
-    "TJJ456",
-    "gaobaisixi",
     "Cyttong0222",
-    "wjlfish",
+    "TJJ456",
     "Lyzyx99",
+    "wjlfish",
+    "gaobaisixi",
     "Cr3st_39"
 ];
 
-const maxMessages = 2;
+const maxMessages = 8;
 
 registerCommand({
     names: ["m", "msg", "message"],

@@ -1,10 +1,11 @@
 ﻿//@ts-check
-import { Block, BlockComponentTypes, BlockInventoryComponent, BlockPermutation, Container, Dimension, ItemStack, MolangVariableMap, Player, system, world } from "@minecraft/server";
-import { randomInt } from "./utils/random";
+import { Block, BlockComponentTypes, BlockInventoryComponent, BlockPermutation, Dimension, ItemStack, Player, system, world } from "@minecraft/server";
+import { randomInt } from "../utils/random";
 
-export function chestlockInit(){}
+export function containerBlockLockInit(){}
 
 /**@typedef {0 | 1 | 2 | 3 | 4 | 5} NumericDirection*/
+
 const containerIds = [
     "chest",
     "trapped_chest",
@@ -14,7 +15,10 @@ const containerIds = [
     "blast_furnace",
     "dispenser",
     "dropper",
-    "hopper"
+    "hopper",
+    "crafter",
+    "brewing_stand",
+    "ender_chest"
 ];
 
 /**判断是否为可以锁上的容器方块。
@@ -86,6 +90,8 @@ world.beforeEvents.playerInteractWithBlock.subscribe(
                 containerBlock = data.block,
                 password = getPassword(containerBlock, false),
                 opassword = getPassword(containerBlock, true),
+                hideSuccess = data.player.getDynamicProperty("hideSuccess"),
+                hideFailure = data.player.getDynamicProperty("hideFailure"),
                 item = data.itemStack,
                 /**@type {import("@minecraft/server").Vector3}*/
                 center = {
@@ -103,7 +109,7 @@ world.beforeEvents.playerInteractWithBlock.subscribe(
                 )
             ){
                 data.cancel = true;
-                data.player.sendMessage("§c容器已上锁，请手持名称为其密码的（不祥）试炼钥匙开启！");
+                if(!hideFailure) data.player.sendMessage("§c容器已上锁，请用正确的（不祥）试炼钥匙解锁！");
                 system.run(()=>{
                     containerBlock.dimension.playSound("vault.insert_item_fail", center, {
                         volume: 1.0,
@@ -127,11 +133,17 @@ world.beforeEvents.playerInteractWithBlock.subscribe(
                 setPassword(containerBlock, item.nameTag, item.typeId === "minecraft:ominous_trial_key");
                 const anotherChestBlock = findLinkedDoubleChest(containerBlock);
                 if(anotherChestBlock) setPassword(anotherChestBlock, item.nameTag, item.typeId === "minecraft:ominous_trial_key");
-                data.player.sendMessage("§e成功给容器上锁。");
+                if(!hideSuccess) data.player.sendMessage("§e容器已上锁。");
                 system.run(()=>{
                     containerBlock.dimension.playSound("vault.insert_item", center, {
                         volume: 1.0,
                         pitch: randomInt(8, 11) / 10
+                    });
+                    const particleCount = randomInt(10, 20);
+                    for(let i = 0; i < particleCount; i++) containerBlock.dimension.spawnParticle("minecraft:villager_happy", {
+                        x: containerBlock.location.x + randomInt(-10, 110) / 100,
+                        y: containerBlock.location.y + randomInt(-10, 110) / 100,
+                        z: containerBlock.location.z + randomInt(-10, 110) / 100,
                     });
                 });
             }
@@ -165,8 +177,8 @@ function findLinkedDoubleChest(block){
                 else if(getLargeChestBlocks(block, direction, "south") % 2) return block.south(1);
                 break;
         }
-        console.error(`Direction for lightning rod get other cases: ${direction}`);
-        world.sendMessage("§e您有一条新的 bug 消息，请及时查收！");
+        console.error(`Direction for chest get other cases: ${direction}`);
+        world.sendMessage("§e出现了一个 bug，请通知开发者查看日志！");
     }
     else return undefined;
 }

@@ -1,6 +1,7 @@
 //@ts-check
-import { world } from "@minecraft/server";
+import { system } from "@minecraft/server";
 import { registerCommand } from "./commandBase";
+import { randomInt } from "./utils/random";
 
 export function aboutInit(){}
 
@@ -27,6 +28,10 @@ registerCommand({
         player.sendMessage("§b网站：https://www.abovebedrock.com");
         player.sendMessage("§6IP地址：abovebedrock.com（19132）");
         player.sendMessage("§。§e§l2018-2024 ABS!");
+        system.run(()=>player.dimension.playSound(`horn.call.${randomInt(0, 7)}`, player.location, {
+            volume: 1.0,
+            pitch: 1.0
+        }));
         return true;
     }
 });

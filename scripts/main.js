@@ -5,12 +5,13 @@ import { fstInit } from "./fst";
 import { enchantInit } from "./enchant";
 import { coordinateInit } from "./coordinate";
 import { messageInit } from "./message";
+import { undergroundInit } from "./underground";
 import { deathCoordsInit } from "./deathCoords";
 import { dayInit } from "./day";
 import { tridentInit } from "./trident";
-import { chestlockInit } from "./chestlock";
-import { loopCommandsInit } from "./loopCommands";
 import { aboutInit } from "./about";
+import { antiCheatInit } from "./antiCheat/index";
+import { lockInit } from "./locks/index";
 
 commandInit();
 welcomeInit();
@@ -18,11 +19,11 @@ fstInit();
 enchantInit();
 coordinateInit();
 messageInit();
+undergroundInit();
 deathCoordsInit();
 dayInit();
 tridentInit();
 aboutInit();
 
-chestlockInit();
-
-loopCommandsInit();
+antiCheatInit();
+lockInit();

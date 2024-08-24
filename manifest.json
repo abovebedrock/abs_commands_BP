@@ -8,7 +8,7 @@
         "description": "基岩之上服务器模组。提供服务器所有的命令功能。",
         "min_engine_version": [ 1, 21, 20 ],
         "uuid": "03bdd0ea-7bfe-4645-8622-e6b984d79f6e",
-        "version": [ 1, 0, 1 ]
+        "version": [ 1, 1, 0 ]
     },
     "modules": [
         {
