@@ -1,5 +1,5 @@
-﻿//@ts-check
-import { BlockPermutation, ItemStack, world } from "@minecraft/server";
+﻿import { BlockPermutation, ItemStack, world } from "@minecraft/server";
+import { dimensionIds } from "../common";
 
 export function dupeFixesInit(){}
 
@@ -8,7 +8,7 @@ export function dupeFixesInit(){}
  */
 world.afterEvents.pistonActivate.subscribe(data=>{
     const methodName = "End Regen";
-    if(data.dimension.id === "minecraft:the_end" && data.piston.block.location.y <= 16){
+    if(data.dimension.id === dimensionIds[2] && data.piston.block.location.y <= 16){
         const nearPlayers = data.dimension.getPlayers({
             location: data.piston.block.location,
             closest: 100,

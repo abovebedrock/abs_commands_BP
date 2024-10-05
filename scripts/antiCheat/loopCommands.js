@@ -1,10 +1,15 @@
-﻿//@ts-check
-import { EntityComponentTypes, EntityInventoryComponent, GameMode, system, world } from "@minecraft/server";
+﻿import { Dimension, EntityComponentTypes, EntityInventoryComponent, GameMode, PlayerCursorInventoryComponent, system, world } from "@minecraft/server";
 import { ban } from "./ban";
+import { dimensionIds, retrieveDimension } from "../common";
 
 export function loopCommandsInit(){}
 
-const o = "minecraft:overworld", n = "minecraft:nether", e = "minecraft:the_end", wind = "minecraft:wind_charge_projectile", bWind = "minecraft:breeze_wind_charge_projectile";
+const
+    o = retrieveDimension("o"),
+    n = retrieveDimension("n"),
+    e = retrieveDimension("e"),
+    wind = "minecraft:wind_charge_projectile",
+    bWind = "minecraft:breeze_wind_charge_projectile";
 
 system.runInterval(()=>{
     capY320(o, wind);
@@ -13,7 +18,7 @@ system.runInterval(()=>{
     capY320(o, bWind);
     capY320(n, bWind);
     capY320(e, bWind);
-}, 40);
+}, 80);
 
 system.runInterval(()=>{
     const
@@ -21,7 +26,7 @@ system.runInterval(()=>{
         saPlayers = world.getPlayers({excludeGameModes: [GameMode.creative, GameMode.spectator]});
     for(let i = 0; i < csPlayers.length; i++) if(!csPlayers[i].hasTag("dev")) ban(csPlayers[i], 604800, `非法获得${csPlayers[i].getGameMode() === GameMode.creative ? "创造" : "旁观"}模式。`);
     for(let i = 0; i < saPlayers.length; i++){
-        if(saPlayers[i].isFlying) ban(csPlayers[i], 604800, `飞行。`);
+        if(saPlayers[i] && saPlayers[i].isFlying) ban(csPlayers[i], 604800, `飞行。`);
     }
 }, 4);
 
@@ -45,20 +50,20 @@ system.runInterval(()=>{
 }, 2);
 
 /**删除y超过世界建筑限制的风弹。
- * @param {string} dimension
+ * @param {Dimension} dimension
  * @param {string} type
  */
 function capY320(dimension, type){
-    const entities = world.getDimension(dimension).getEntities({type});
+    const entities = dimension.getEntities({type});
     for(let i = 0; i < entities.length; i++) if(entities[i].location.y >= 322) entities[i].remove();
 }
 
 /**删除违规实体。
- * @param {string} dimension
+ * @param {Dimension} dimension
  * @param {string} type
  */
 function remove(dimension, type){
-    const entities = world.getDimension(dimension).getEntities({type});
+    const entities = dimension.getEntities({type});
     for(let i = 0; i < entities.length; i++){
         console.error(`Illegal entity ${type} found in ${dimension} ${entities[i].location.x.toFixed(1)} ${entities[i].location.y.toFixed(1)} ${entities[i].location.z.toFixed(1)}`);
         entities[i].remove();
@@ -74,7 +79,6 @@ function removeSurvival(ids, banPlayer){
     for(let i = 0; i < players.length; i++){
         const
             inventory = /**@type {EntityInventoryComponent | undefined}*/ (players[i].getComponent(EntityComponentTypes.Inventory)),
-            //@ts-ignore
             cursor = /**@type {PlayerCursorInventoryComponent | undefined}*/ (players[i].getComponent(EntityComponentTypes.CursorInventory));
         if(inventory && inventory.container){
             const container = inventory.container;

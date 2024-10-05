@@ -1,376 +1,23 @@
-﻿//@ts-check
-import { Block, BlockPermutation, Dimension, ItemStack, Player, system, world } from "@minecraft/server";
-import { randomInt } from "../utils/random";
+﻿import { Block, Dimension, Player, system, world } from "@minecraft/server";
+import { decide, randomInt } from "../utils/random";
+import { boxList, getManhattanDistance, getPassword, getPlayerHeight, is2BDoor, isFenceGate, isTrapdoor, radiusList, resetPassword, setPassword } from "../common";
 
 export function doorLockInit(){}
 
-/**@typedef {0 | 1 | 2 | 3 | 4 | 5} SixDirection*/
-/**@typedef {0 | 1 | 2 | 3} FourDirection*/
+//#region 类型定义
+/**0 西 1 北 2 东 3 南
+ * @typedef {0 | 1 | 2 | 3} FourDirection*/
 
-const doorIds = [
-    "wooden",
-    "spruce",
-    "birch",
-    "jungle",
-    "acacia",
-    "dark_oak",
-    "mangrove",
-    "cherry",
-    "bamboo",
-    "crimson",
-    "warped",
-    "copper",
-    "exposed_copper",
-    "weathered_copper",
-    "oxidized_copper",
-    "waxed_copper",
-    "waxed_exposed_copper",
-    "waxed_weathered_copper",
-    "waxed_oxidized_copper"
-];
+/**0 南北 1 西东
+ * @typedef {0 | 1} TwoDirection*/
+//#endregion
 
-/**判断是否为可以锁上的门，除了铁门外任何门都可以。
- * @param {Block} block
- * @returns {boolean}
- */
-function isDoor(block){
-    return doorIds.map(value=>`minecraft:${value}_door`).includes(block.typeId);
-}
-
-/**获取维度魔数。
- * @param {Dimension} dimension
- * @returns {"o" | "n" | "e"}
- */
-function getDimensionML(dimension){
-    return dimension.id === "minecraft:overworld" ? "o" : dimension.id === "minecraft:nether" ? "n" : "e";
-}
-
-/**生成附加属性键名。
- * @param {Block} block
- * @param {boolean} isOminous
- */
-function generateKey(block, isOminous){
-    return `d${isOminous === true ? "o" : ""}${block.location.x},${block.location.y},${block.location.z}${getDimensionML(block.dimension)}`;
-}
-
-/**设置坐标密码。
- * @param {Block} block
- * @param {string} password
- * @param {boolean} isOminous
- */
-function setPassword(block, password, isOminous){
-    //world.sendMessage(`set ${block.location.x} ${block.location.y} ${block.location.z}`);
-    world.setDynamicProperty(generateKey(block, isOminous), password);
-}
-
-/**获取密码。
- * @param {Block} block
- * @param {boolean} isOminous
- * @returns {string | undefined}
- */
-function getPassword(block, isOminous){
-    return /**@type {string | undefined}*/ (world.getDynamicProperty(generateKey(block, isOminous)));
-}
-
-/**重置坐标的全部密码。
- * @param {Block} block
- */
-function resetPassword(block){
-    //world.sendMessage(`reset ${generateKey(block, false)}`);
-    world.setDynamicProperty(generateKey(block, false), undefined);
-    world.setDynamicProperty(generateKey(block, true), undefined);
-}
-
-//@ts-ignore 扩展。。。。。
-world.beforeEvents.playerInteractWithBlock.subscribe(
-    /**@param {{
-     *     block :Block;
-     *     blockFace :Direction;
-     *     cancel :boolean;
-     *     faceLocation :import("@minecraft/server").Vector3;
-     *     itemStack? :ItemStack;
-     *     player :Player;
-     * }} data*/
-    data=>{
-        if(isDoor(data.block)){
-            const
-                isUpperHalf = /**@type {boolean}*/ (data.block.permutation.getState("upper_block_bit")),
-                upperBlock = /**@type {Block}*/ (isUpperHalf ? data.block : data.block.above(1)),
-                lowerBlock = /**@type {Block}*/ (isUpperHalf ? data.block.below(1) : data.block),
-                actualDirection = getActualDirection(upperBlock),
-                hingeBit = /**@type {boolean}*/ (upperBlock.permutation.getState("door_hinge_bit")),
-                openBit = /**@type {boolean}*/ (lowerBlock.permutation.getState("open_bit")),
-                password = getPassword(upperBlock, false),
-                opassword = getPassword(upperBlock, true),
-                player = data.player,
-                hideSuccess = player.getDynamicProperty("hideSuccess"),
-                hideFailure = player.getDynamicProperty("hideFailure"),
-                item = data.itemStack,
-                /**@type {import("@minecraft/server").Vector3}*/
-                center = {
-                    x: upperBlock.location.x + 0.5,
-                    y: upperBlock.location.y,
-                    z: upperBlock.location.z + 0.5,
-                };
-            if(password || opassword){
-                if(!item
-                 || (
-                        (item.typeId !== "minecraft:trial_key" || password !== item.nameTag)
-                     && (item.typeId !== "minecraft:ominous_trial_key" || opassword !== item.nameTag)
-                    )
-                ){
-                    data.cancel = true;
-                    //cancelPlayerMove(upperBlock, lowerBlock);
-                    if(!hideFailure) player.sendMessage("§c门已上锁，请用正确的（不祥）试炼钥匙解锁！");
-                    system.run(()=>{
-                        upperBlock.dimension.playSound("vault.insert_item_fail", center, {
-                            volume: 1.0,
-                            pitch: randomInt(8, 11) / 10
-                        });
-                        emitParticles(upperBlock, "minecraft:basic_smoke_particle", actualDirection, hingeBit, openBit);
-                    });
-                }
-                else{
-                    if(!hideSuccess) player.sendMessage("§e门锁已打开。");
-                    resetPassword(upperBlock);
-                    const theOtherDoor = getDoubleDoor(upperBlock);
-                    if(theOtherDoor){
-                        resetPassword(theOtherDoor);
-                        const lowerBlock = /**@type {Block}*/ (theOtherDoor.below(1));
-                        system.run(()=>lowerBlock.setPermutation(lowerBlock.permutation.withState("open_bit", /**@type {boolean}*/ !(lowerBlock.permutation.getState("open_bit")))));
-                    }
-                }
-            }
-            else if(item
-             && (item.typeId === "minecraft:trial_key" || item.typeId === "minecraft:ominous_trial_key")
-             && item.nameTag
-            ){
-                data.cancel = true;
-                setPassword(upperBlock, item.nameTag, item.typeId === "minecraft:ominous_trial_key");
-                const theOtherDoor = getDoubleDoor(upperBlock);
-                if(theOtherDoor) setPassword(theOtherDoor, item.nameTag, item.typeId === "minecraft:ominous_trial_key");
-                if(!hideSuccess) player.sendMessage("§e门已上锁。");
-                system.run(()=>{
-                    upperBlock.dimension.playSound("vault.insert_item", center, {
-                        volume: 1.0,
-                        pitch: randomInt(8, 11) / 10
-                    });
-                    emitParticles(upperBlock, "minecraft:villager_happy", actualDirection, hingeBit, openBit);
-                });
-            }
-        }
-    }
-);
-
-/**在把手位置发出粒子。
- * @param {Block} upperBlock
- * @param {string} id 粒子ID。
- * @param {FourDirection} actualDirection
- * @param {boolean} hingeBit
- * @param {boolean} openBit
- */
-function emitParticles(upperBlock, id, actualDirection, hingeBit, openBit){
-    const
-        particleCount = randomInt(8, 16),
-        actualHinge = openBit ? !hingeBit : hingeBit;
-    for(let i = 0; i < particleCount; i++) switch(actualDirection){
-        //0：朝西1：朝北2：朝东3：朝南
-        case 0:
-            if(actualHinge) upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + randomInt(-10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + randomInt(10, 30) / 100,
-            });
-            else upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + randomInt(-10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + 1 - randomInt(10, 30) / 100,
-            });
-            break;
-        case 1:
-            if(actualHinge) upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + 1 - randomInt(10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + randomInt(-10, 30) / 100,
-            });
-            else upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + randomInt(10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + randomInt(-10, 30) / 100,
-            });
-            break;
-        case 2:
-            if(actualHinge) upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + 1 - randomInt(-10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + 1 - randomInt(10, 30) / 100,
-            });
-            else upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + 1 - randomInt(-10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + randomInt(10, 30) / 100,
-            });
-            break;
-        case 3:
-            if(actualHinge) upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + randomInt(10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + 1 - randomInt(-10, 30) / 100,
-            });
-            else upperBlock.dimension.spawnParticle(id, {
-                x: upperBlock.location.x + 1 - randomInt(10, 30) / 100,
-                y: upperBlock.location.y + randomInt(-10, 10) / 100,
-                z: upperBlock.location.z + 1 - randomInt(-10, 30) / 100,
-            });
-            break;
-    }
-}
-
-//@ts-ignore扩展。。。。
-world.afterEvents.playerInteractWithBlock.subscribe(
-    /**@param {{
-     *     block :Block;
-     *     blockFace :Direction;
-     *     faceLocation :import("@minecraft/server").Vector3;
-     *     itemStack? :ItemStack;
-     *     player :Player;
-     * }} data*/
-    data=>{
-        if(isDoor(data.block)){
-            const
-                upperBlock = /**@type {Block}*/ (data.block.permutation.getState("upper_block_bit") ? data.block : data.block.above(1)),
-                theOtherDoor = getDoubleDoor(upperBlock);
-            if(!getPassword(upperBlock, false) && !getPassword(upperBlock, true) && theOtherDoor){
-                const
-                    password = getPassword(theOtherDoor, false),
-                    opassword = getPassword(theOtherDoor, true);
-                if(password) setPassword(upperBlock, password, false);
-                else if(opassword) setPassword(upperBlock, opassword, true);
-            }
-        }
-    }
-);
-
-const deprecatedOnNextVersion = 0.09126, pRadius = 0.3, checkTimes = 5;
-
-/**智能的碰撞箱检测拉回玩家！！！
- * @param {Block} upperBlock
- * @param {Block} lowerBlock
- */
-function cancelPlayerMove(upperBlock, lowerBlock){
-    let h = 0;
-    const
-        doorLocation = lowerBlock.location,
-        actualDirection = getActualDirection(upperBlock),
-        players = lowerBlock.dimension.getPlayers({
-            location: lowerBlock.location,
-            maxDistance: 2
-        });
-    for(let i = 0; i < players.length; i++) system.run(()=>checkPlayer(players[i]));
-    /**@param {Player} player*/
-    function checkPlayer(player){
-        if(h >= checkTimes) return;
-        h++;
-        const location = player.location, velocity = player.getVelocity(), height = getPlayerHeight(player);
-        if(Math.abs(location.y + height / 2 - (doorLocation.y + 1)) < height / 2 + 1){
-            let multiplyerX = 0, multiplyerY = 0, multiplyerZ = 0;
-            switch(actualDirection){ //0：朝西1：朝北2：朝东3：朝南
-                case 0:
-                    if(
-                        Math.abs(location.z - (doorLocation.z + 0.5)) < pRadius + 0.5
-                     && location.x - (doorLocation.x + deprecatedOnNextVersion) > -0.39126305175781795
-                     && location.x - (doorLocation.x + deprecatedOnNextVersion) < 0.3912457983398383
-                    ){
-                        const
-                            x = Math.abs((pRadius + deprecatedOnNextVersion - Math.abs(location.x - (doorLocation.x + deprecatedOnNextVersion))) / velocity.x),
-                            y = Math.abs((height / 2 + 1 - Math.abs(location.y + height / 2 - (doorLocation.y + 1))) / velocity.y),
-                            z = Math.abs((pRadius + 0.5 - Math.abs(location.z - (doorLocation.z + 0.5))) / velocity.z),
-                            min = Math.min(x, y, z);
-                        if(min === x) multiplyerX = x;
-                        else if(min === y) multiplyerY = y;
-                        else multiplyerZ = z;
-                    }
-                    break;
-                case 1:
-                    if(
-                        Math.abs(location.x - (doorLocation.x + 0.5)) < pRadius + 0.5
-                     && location.z - (doorLocation.z + deprecatedOnNextVersion) > -0.3912592370605452
-                     && location.z - (doorLocation.z + deprecatedOnNextVersion) < 0.39123816894531416
-                    ){
-                        const
-                            x = Math.abs((pRadius + 0.5 - Math.abs(location.x - (doorLocation.x + 0.5))) / velocity.x),
-                            y = Math.abs((height / 2 + 1 - Math.abs(location.y + height / 2 - (doorLocation.y + 1))) / velocity.y),
-                            z = Math.abs((pRadius + deprecatedOnNextVersion - Math.abs(location.z - (doorLocation.z + deprecatedOnNextVersion))) / velocity.z),
-                            min = Math.min(x, y, z);
-                        if(min === x) multiplyerX = x;
-                        else if(min === y) multiplyerY = y;
-                        else multiplyerZ = z;
-                    }
-                    break;
-                case 2:
-                    if(
-                        Math.abs(location.z - (doorLocation.z + 0.5)) < pRadius + 0.5
-                     && location.x - (doorLocation.x + 1 - deprecatedOnNextVersion) > -0.3912457983398383
-                     && location.x - (doorLocation.x + 1 - deprecatedOnNextVersion) < 0.3912592370605452
-                    ){
-                        const
-                            x = Math.abs((pRadius + deprecatedOnNextVersion - Math.abs(location.x - (doorLocation.x + 1 - deprecatedOnNextVersion))) / velocity.x),
-                            y = Math.abs((height / 2 + 1 - Math.abs(location.y + height / 2 - (doorLocation.y + 1))) / velocity.y),
-                            z = Math.abs((pRadius + 0.5 - Math.abs(location.z - (doorLocation.z + 0.5))) / velocity.z),
-                            min = Math.min(x, y, z);
-                        if(min === x) multiplyerX = x;
-                        else if(min === y) multiplyerY = y;
-                        else multiplyerZ = z;
-                    }
-                    break;
-                case 3:
-                    if(
-                        Math.abs(location.x - (doorLocation.x + 0.5)) < pRadius + 0.5
-                     && location.z - (doorLocation.z + 1 - deprecatedOnNextVersion) > -0.39123816894531416
-                     && location.z - (doorLocation.z + 1 - deprecatedOnNextVersion) < 0.3912592370605452
-                    ){
-                        const
-                            x = Math.abs((pRadius + 0.5 - Math.abs(location.x - (doorLocation.x + 0.5))) / velocity.x),
-                            y = Math.abs((height / 2 + 1 - Math.abs(location.y + height / 2 - (doorLocation.y + 1))) / velocity.y),
-                            z = Math.abs((pRadius + deprecatedOnNextVersion - Math.abs(location.z - (doorLocation.z + 1 - deprecatedOnNextVersion))) / velocity.z),
-                            min = Math.min(x, y, z);
-                        if(min === x) multiplyerX = x;
-                        else if(min === y) multiplyerY = y;
-                        else multiplyerZ = z;
-                    }
-                    break;
-            }
-            if(isFinite(multiplyerX) && isFinite(multiplyerY) && isFinite(multiplyerZ) && (multiplyerX !== 0 || multiplyerY !== 0 || multiplyerZ !== 0)) player.teleport({
-                x: location.x - velocity.x * multiplyerX,
-                y: location.y - velocity.y * multiplyerY,
-                z: location.z - velocity.z * multiplyerZ
-            });
-        }
-        system.run(()=>checkPlayer(player));
-    }
-}
-
-/**获取玩家全身高度。
- * @param {Player} player
- * @returns {number}
- */
-function getPlayerHeight(player){
-    const playerEyeHeight = (player.getHeadLocation().y - player.location.y).toFixed(1);
-    if(playerEyeHeight === "1.5") return 1.8;
-    else if(playerEyeHeight === "1.2") return 1.49;
-    else if(playerEyeHeight === "0.3") return 0.6;
-    else{
-        console.error(`Player ${player.name} eye height get ${playerEyeHeight}!`);
-        world.sendMessage("§e出现了一个 bug，请通知开发者查看日志！");
-        return 0;
-    }
-}
-
-/**
+//#region 工具方法
+/**基于门的开闭、门轴方向，获得门的实际面向方向（门在方块内偏向的方向）。
  * @param {Block} upperBlock
  * @returns {FourDirection}
  */
-function getActualDirection(upperBlock){
+function get2BDirection(upperBlock){
     const
         lowerBlock = /**@type {Block}*/ (upperBlock.below(1)),
         direction = /**@type {FourDirection}*/ (lowerBlock.permutation.getState("direction"));
@@ -387,73 +34,506 @@ function getActualDirection(upperBlock){
     else return direction;
 }
 
-/**如果有配对的双门，则返回上门方块，否则返回`undefined`。允许不同种的门配对。
+/**获得栅栏门的实际面向方位。
+ * @param {Block} block
+ * @returns {TwoDirection}
+ */
+function getFGDirection(block){
+    //真的有病，这个FourDirection和门的还不一样，0南1西2北3东
+    const nbDirection = /**@type {0 | 1 | 2 | 3}*/ (block.permutation.getState("direction"));
+    switch(nbDirection){
+        case 0: case 2: return 0;
+        case 1: case 3: return 1;
+    }
+}
+
+/**获得活板门的轴在方块内的相对方位，即其竖直时的方块相对方位。
+ * @param {Block} block
+ * @returns {FourDirection}
+ */
+function getTDDirection(block){
+    //真的有病，这个FourDirection也跟门的不一样，0东1西2南3北
+    const nbDirection = /**@type {0 | 1 | 2 | 3}*/ (block.permutation.getState("direction"));
+    switch(nbDirection){
+        case 0: return 0;
+        case 1: return 2;
+        case 2: return 1;
+        case 3: return 3;
+    }
+}
+
+/**获取所有门的碰撞箱中心坐标。
+ * @param {Block} upperBlock 如果不是2B门就你懂的，这个玩意是提示你2B门要传上面半边
+ * @returns {import("@minecraft/server").Vector3}
+ */
+function getGeometryCenter(upperBlock){
+    const {location} = upperBlock;
+    if(is2BDoor(upperBlock)){
+        const direction = get2BDirection(upperBlock);
+        switch(direction){
+            case 0: return {
+                x: location.x + boxList.door.front,
+                y: location.y,
+                z: location.z + boxList.door.side
+            };
+            case 1: return {
+                x: location.x + boxList.door.side,
+                y: location.y,
+                z: location.z + boxList.door.front
+            };
+            case 2: return {
+                x: location.x + 1 - boxList.door.front,
+                y: location.y,
+                z: location.z + boxList.door.side
+            };
+            case 3: return {
+                x: location.x + boxList.door.side,
+                y: location.y,
+                z: location.z + 1 - boxList.door.front
+            };
+        }
+    }
+    else if(isFenceGate(upperBlock)) return {
+        x: location.x + boxList.door.side,
+        y: location.y + boxList.fenceGate.height,
+        z: location.z + boxList.door.side
+    };
+    else if(isTrapdoor(upperBlock)){
+        const directon = getTDDirection(upperBlock);
+        if(/**@type {boolean}*/ !(upperBlock.permutation.getState("open_bit"))){
+            if(/**@type {boolean}*/ (upperBlock.permutation.getState("upside_down_bit"))) return {
+                x: location.x + boxList.door.side,
+                y: location.y + 1 - boxList.door.front,
+                z: location.z + boxList.door.side
+            };
+            else return {
+                x: location.x + boxList.door.side,
+                y: location.y + boxList.door.front,
+                z: location.z + boxList.door.side
+            };
+        }
+        else switch(directon){
+            case 0: return {
+                x: location.x + boxList.door.front,
+                y: location.y + boxList.trapdoor.height,
+                z: location.z + boxList.door.side
+            };
+            case 1: return {
+                x: location.x + boxList.door.side,
+                y: location.y + boxList.trapdoor.height,
+                z: location.z + boxList.door.front
+            };
+            case 2: return {
+                x: location.x + 1 - boxList.door.front,
+                y: location.y + boxList.trapdoor.height,
+                z: location.z + boxList.door.side
+            };
+            case 3: return {
+                x: location.x + boxList.door.side,
+                y: location.y + boxList.trapdoor.height,
+                z: location.z + 1 - boxList.door.front
+            };
+        }
+    }
+    else{
+        console.error(`GetGeometryCenter get block ${upperBlock.typeId}!`);
+        world.sendMessage("§e666又有bug了，赶紧的找开发者！");
+    }
+}
+
+/**检测某门是否与玩家“碰撞”。为了对抗JS number精度，实际上玩家与门距离小于0.00001也会被判断为碰撞。
+ * @param {Block} upperBlock 如果不是2B门就你懂的，这个玩意是提示你2B门要传上面半边
+ * @param {Player} player
+ * @param {import("@minecraft/server").Vector3 | undefined} [cachedCenter] 用于缓存几何中心，防止多次调用
+ * @param {number | undefined} [cachedHeight] 用于缓存玩家高度，防止在一次检测中多次调用
+ * @returns {boolean}
+ */
+function collidesWithPlayer(upperBlock, player, cachedCenter, cachedHeight){
+    const
+        playerHeight = getPlayerHeight(player),
+        manhattan = getManhattanDistance(cachedCenter ?? getGeometryCenter(upperBlock), {
+            x: player.location.x,
+            y: player.location.y + playerHeight / 2,
+            z: player.location.z
+        });
+    //world.sendMessage(`${manhattan.x} ${manhattan.y} ${manhattan.z}`);
+    /**0 西 1 北 2 东 3 南 FourDirection*/
+    if(is2BDoor(upperBlock)){
+        const direction = get2BDirection(upperBlock);
+        switch(direction){
+            case 0: case 2: return (
+                manhattan.x < radiusList.door.front + radiusList.player.horizontal
+             && manhattan.y < radiusList.door.height + playerHeight
+             && manhattan.z < radiusList.door.side + radiusList.player.horizontal
+            );
+            case 1: case 3: return (
+                manhattan.x < radiusList.door.side + radiusList.player.horizontal
+             && manhattan.y < radiusList.door.height + playerHeight
+             && manhattan.z < radiusList.door.front + radiusList.player.horizontal
+            );
+        }
+    }
+    else if(isFenceGate(upperBlock)){
+        const direction = getFGDirection(upperBlock);
+        switch(direction){
+            case 0: return (
+                manhattan.x < radiusList.door.side + radiusList.player.horizontal
+             && manhattan.y < radiusList.fenceGate.height + playerHeight
+             && manhattan.z < radiusList.fenceGate.front + radiusList.player.horizontal
+            );
+            case 1: return (
+                manhattan.x < radiusList.fenceGate.front + radiusList.player.horizontal
+             && manhattan.y < radiusList.fenceGate.height + playerHeight
+             && manhattan.z < radiusList.door.side + radiusList.player.horizontal
+            );
+        }
+    }
+    else if(isTrapdoor(upperBlock)){
+        const direction = getTDDirection(upperBlock);
+        if(/**@type {boolean}*/ !(upperBlock.permutation.getState("open_bit"))) return (
+            manhattan.x < radiusList.door.side + radiusList.player.horizontal
+         && manhattan.y < radiusList.door.front + playerHeight
+         && manhattan.z < radiusList.door.side + radiusList.player.horizontal
+        );
+        else switch(direction){
+            case 0: case 2: return (
+                manhattan.x < radiusList.door.front + radiusList.player.horizontal
+             && manhattan.y < radiusList.trapdoor.height + playerHeight
+             && manhattan.z < radiusList.door.side + radiusList.player.horizontal
+            );
+            case 1: case 3: return (
+                manhattan.x < radiusList.door.side + radiusList.player.horizontal
+             && manhattan.y < radiusList.trapdoor.height + playerHeight
+             && manhattan.z < radiusList.door.front + radiusList.player.horizontal
+            );
+        }
+    }
+    else{
+        console.error(`CollideWithPlayer get block ${upperBlock.typeId}!`);
+        world.sendMessage("§e666又有bug了，赶紧的找开发者！");
+    }
+}
+
+/**获取2B门把手中心位置。
+ * @param {Block} upperBlock
+ * @returns {import("@minecraft/server").Vector3}
+ */
+function getKnobLocation(upperBlock){
+    const
+        direction = get2BDirection(upperBlock),
+        //从外面（方块边界面）看去，门的把手是否在左边。
+        isLeft = /**@type {boolean}*/ (upperBlock.permutation.getState("door_hinge_bit")) !== /**@type {boolean}*/ (upperBlock.below(1).permutation.getState("open_bit"));
+    switch(direction){
+        case 0:
+            if(isLeft) return {
+                x: upperBlock.location.x + boxList.door.front,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + boxList.door.deltaKnob
+            };
+            else return {
+                x: upperBlock.location.x + boxList.door.front,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + 1 - boxList.door.deltaKnob
+            };
+        case 1:
+            if(isLeft) return {
+                x: upperBlock.location.x + 1 - boxList.door.deltaKnob,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + boxList.door.front
+            };
+            else return {
+                x: upperBlock.location.x + boxList.door.deltaKnob,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + boxList.door.front
+            };
+        case 2:
+            if(isLeft) return {
+                x: upperBlock.location.x + 1 - boxList.door.front,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + 1 - boxList.door.deltaKnob
+            };
+            else return {
+                x: upperBlock.location.x + 1 - boxList.door.front,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + boxList.door.deltaKnob
+            };
+        case 3:
+            if(isLeft) return {
+                x: upperBlock.location.x + boxList.door.deltaKnob,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + 1 - boxList.door.front
+            };
+            else return {
+                x: upperBlock.location.x + 1 - boxList.door.deltaKnob,
+                y: upperBlock.location.y,
+                z: upperBlock.location.z + 1 - boxList.door.front
+            };
+    }
+}
+
+/**如果有配对的双2B门，则返回上门方块，否则返回`undefined`。允许不同种的2B门配对。
  * @param {Block} upperBlock
  * @returns {Block | undefined}
  */
-function getDoubleDoor(upperBlock){
+function getDouble2B(upperBlock){
     const
-        actualDirection = getActualDirection(upperBlock),
+        actualDirection = get2BDirection(upperBlock),
         hingeBit = /**@type {boolean}*/ (upperBlock.permutation.getState("door_hinge_bit")),
+        openBit = /**@type {boolean}*/ (upperBlock.below(1).permutation.getState("open_bit")),
         blockToCheck = (()=>{
             switch(actualDirection){
                 case 0:
-                    if(hingeBit) return upperBlock.north(1);
-                    else return upperBlock.south(1);
+                    if(hingeBit){
+                        if(openBit) return upperBlock.south(1);
+                        else return upperBlock.north(1);
+                    }
+                    else{
+                        if(openBit) return upperBlock.north(1);
+                        else return upperBlock.south(1);
+                    }
                 case 1:
-                    if(hingeBit) return upperBlock.east(1);
-                    else return upperBlock.west(1);
+                    if(hingeBit){
+                        if(openBit) return upperBlock.west(1);
+                        else return upperBlock.east(1);
+                    }
+                    else{
+                        if(openBit) return upperBlock.east(1);
+                        else return upperBlock.west(1);
+                    }
                 case 2:
-                    if(hingeBit) return upperBlock.south(1);
-                    else return upperBlock.north(1);
+                    if(hingeBit){
+                        if(openBit) return upperBlock.north(1);
+                        else return upperBlock.south(1);
+                    }
+                    else{
+                        if(openBit) return upperBlock.south(1);
+                        else return upperBlock.north(1);
+                    }
                 case 3:
-                    if(hingeBit) return upperBlock.west(1);
-                    else return upperBlock.east(1);
+                    if(hingeBit){
+                        if(openBit) return upperBlock.east(1);
+                        else return upperBlock.west(1);
+                    }
+                    else{
+                        if(openBit) return upperBlock.west(1);
+                        else return upperBlock.east(1);
+                    }
             }
         })();
-    if(blockToCheck && isDoor(blockToCheck) && getActualDirection(blockToCheck) === actualDirection && (blockToCheck.permutation.getState("door_hinge_bit") !== hingeBit || /**@type {Block}*/ (blockToCheck.below(1)).permutation.getState("open_bit"))) return blockToCheck;
+    if(blockToCheck && is2BDoor(blockToCheck) && get2BDirection(blockToCheck) === actualDirection && (blockToCheck.permutation.getState("door_hinge_bit") !== hingeBit || /**@type {Block}*/ (blockToCheck.below(1)).permutation.getState("open_bit") !== openBit)) return blockToCheck;
+}
+//#endregion
+
+//#region 主方法
+const offsetSmoke = {x: 10, y: 5, z: 10}, offsetGreen = {x: 15, y: 8, z: 15};
+
+world.beforeEvents.playerInteractWithBlock.subscribe(data=>{
+    const
+        {block: block_, player, itemStack: item} = data,
+        is2B = is2BDoor(block_),
+        isFG = isFenceGate(block_),
+        isTD = isTrapdoor(block_);
+    if(is2B || isFG || isTD){
+        const
+            hideSuccess = player.getDynamicProperty("hideSuccess"),
+            hideFailure = player.getDynamicProperty("hideFailure"),
+            block = is2B && /**@type {boolean}*/ !(block_.permutation.getState("upper_block_bit")) ? block_.above(1) : block_,
+            password = getPassword(block, false, true),
+            opassword = getPassword(block, true, true);
+        if(password || opassword){
+            if(!item
+             || (
+                    (item.typeId !== "minecraft:trial_key" || password !== item.nameTag)
+                 && (item.typeId !== "minecraft:ominous_trial_key" || opassword !== item.nameTag)
+                )
+            ){
+                data.cancel = true;
+                cancelPlayerMove(block);
+                if(!hideFailure){
+                    if(decide(0.995)) player.sendMessage("§c门已上锁，请用正确的（不祥）试炼钥匙解锁！");
+                    else player.sendMessage("§c门不能从这一侧打开 ：）");
+                }
+                system.run(()=>{
+                    makeSound("vault.insert_item_fail", block, 1.0, randomInt(8, 11) / 10);
+                    if(is2B) emitParticles("minecraft:basic_smoke_particle", getKnobLocation(block), block.dimension, offsetSmoke, offsetSmoke, 8, 16);
+                    else emitParticles("minecraft:basic_smoke_particle", getGeometryCenter(block), block.dimension, offsetSmoke, offsetSmoke, 8, 16);
+                });
+            }
+            else{
+                if(!hideSuccess) player.sendMessage("§e门锁已打开。");
+                resetPassword(block, true);
+                if(is2B){
+                    const theOther2BDoor = getDouble2B(block);
+                    if(theOther2BDoor){
+                        resetPassword(theOther2BDoor, true);
+                        const otherLowerBlock = /**@type {Block}*/ (theOther2BDoor.below(1));
+                        system.run(()=>otherLowerBlock.setPermutation(otherLowerBlock.permutation.withState("open_bit", /**@type {boolean}*/ !(otherLowerBlock.permutation.getState("open_bit")))));
+                    }
+                }
+            }
+        }
+        else if(item
+         && (item.typeId === "minecraft:trial_key" || item.typeId === "minecraft:ominous_trial_key")
+         && item.nameTag
+         && (!isFG || /**@type {boolean}*/ !(block.permutation.getState("open_bit")))
+        ){
+            data.cancel = true;
+            const isOminous = item.typeId === "minecraft:ominous_trial_key";
+            setPassword(block, item.nameTag, isOminous, true);
+            if(is2B){
+                const theOther2BDoor = getDouble2B(block);
+                if(theOther2BDoor) setPassword(theOther2BDoor, item.nameTag, isOminous, true);
+            }
+            if(!hideSuccess) player.sendMessage("§e门已上锁。");
+            system.run(()=>{
+                makeSound("vault.insert_item", block, 1.0, randomInt(8, 11) / 10);
+                if(is2B) emitParticles("minecraft:villager_happy", getKnobLocation(block), block.dimension, offsetGreen, offsetGreen, 6, 12);
+                else emitParticles("minecraft:villager_happy", getGeometryCenter(block), block.dimension, offsetGreen, offsetGreen, 6, 12);
+            });
+        }
+    }
+});
+//#endregion
+
+//#region 粒子和声音
+/**统一粒子释放方法。
+ * @param {string} id 粒子ID。
+ * @param {import("@minecraft/server").Vector3} location 中心位置。
+ * @param {Dimension} dimension 维度。
+ * @param {import("@minecraft/server").Vector3} offsetNeg 负方向概率盒，乘以100，**不用负数！**
+ * @param {import("@minecraft/server").Vector3} offsetPos 正方向概率盒，乘以100。
+ * @param {number} min 最小数量。
+ * @param {number} max 最大数量。
+ */
+function emitParticles(id, location, dimension, offsetNeg, offsetPos, min, max){
+    const count = randomInt(min, max);
+    for(let i = 0; i < count; i++) dimension.spawnParticle(id, {
+        x: location.x + randomInt(-offsetNeg.x, offsetPos.x) / 100,
+        y: location.y + randomInt(-offsetNeg.y, offsetPos.y) / 100,
+        z: location.z + randomInt(-offsetNeg.z, offsetPos.z) / 100
+    });
 }
 
-world.beforeEvents.explosion.subscribe(data=>{
-    const blocks = data.getImpactedBlocks();
-    for(let i = 0; i < blocks.length; i++) if(isDoor(blocks[i])){
-        resetPassword(blocks[i]);
-        if(blocks[i].above(1)) resetPassword(/**@type {Block}*/ (blocks[i].above(1)));
+/**统一声音播放方法。
+ * @param {string} id 声音ID。
+ * @param {Block} block 方块，会在坐标中心播放声音。
+ * @param {number} volume 音量，不提供内置随机，反正就一次。
+ * @param {number} pitch 音高，不提供内置随机，反正就一次！
+ */
+function makeSound(id, block, volume, pitch){
+    block.dimension.playSound(id, {x: block.location.x + 0.5, y: block.location.y + 0.5, z: block.location.z + 0.5}, {volume, pitch});
+}
+//#endregion
+
+//#region 拉回
+const maxCheckTimes = 5, maxTDHitTimes = 3;
+
+/**碰撞箱检测拉回玩家。
+ * @param {Block} upperBlock
+ */
+function cancelPlayerMove(upperBlock){
+    let checkedTimes = 0, TDhitTimes = maxTDHitTimes;
+    const
+        geoMetryCenter = getGeometryCenter(upperBlock),
+        players = upperBlock.dimension.getPlayers({
+            location: upperBlock.location,
+            maxDistance: 3
+        }),
+        isTD = isTrapdoor(upperBlock),
+        originalHeights = new Map(players.map(value=>[value, getPlayerHeight(value)])),
+        originalLocations = new Map(players.map(value=>[value, value.location]));
+    for(let i = 0; i < players.length; i++) system.run(()=>checkPlayer(players[i]));
+    /**@param {Player} player*/
+    function checkPlayer(player){
+        if(checkedTimes < maxCheckTimes){
+            //world.sendMessage("check");
+            checkedTimes++;
+            const velocity = player.getVelocity(), playerHeight = getPlayerHeight(player);
+            //world.sendMessage(`${playerHeight} ${originalHeights.get(player)}`);
+            //world.sendMessage(`${player.location.x} ${player.location.y} ${player.location.z}`);
+            if(isTD && playerHeight !== originalHeights.get(player)){
+                //world.sendMessage("tp1");
+                player.teleport(originalLocations.get(player));
+                TDhitTimes--;
+                if(TDhitTimes > 0) system.run(()=>checkPlayer(player));
+            }
+            else if((velocity.x === 0 || velocity.y === 0 || velocity.z === 0) && collidesWithPlayer(upperBlock, player, geoMetryCenter, playerHeight)){
+                //world.sendMessage("tp2");
+                player.teleport(player.location);
+                if(isTD){
+                    TDhitTimes--;
+                    if(TDhitTimes > 0) system.run(()=>checkPlayer(player));
+                }
+            }
+            else system.run(()=>checkPlayer(player));
+        }
     }
-});
+}
+//#endregion
 
-world.beforeEvents.playerBreakBlock.subscribe(data=>resetPassword(data.block));
-
+//#region 其他事件处理
+//处理玩家放置2B门形成双2B门，给放置的门也上锁
 world.afterEvents.playerPlaceBlock.subscribe(data=>{
-    if(isDoor(data.block)){
+    if(is2BDoor(data.block)){
         const
             upperBlock = /**@type {Block}*/ (/**@type {boolean}*/ (data.block.permutation.getState("upper_block_bit")) ? data.block : data.block.above(1)),
-            theOtherDoor = getDoubleDoor(upperBlock);
+            theOtherDoor = getDouble2B(upperBlock);
         if(theOtherDoor){
             const
-                password = getPassword(theOtherDoor, false),
-                opassword = getPassword(theOtherDoor, true);
-            if(password) setPassword(upperBlock, password, false);
-            else if(opassword) setPassword(upperBlock, opassword, true);
+                password = getPassword(theOtherDoor, false, true),
+                opassword = getPassword(theOtherDoor, true, true);
+            if(password) setPassword(upperBlock, password, false, true);
+            else if(opassword) setPassword(upperBlock, opassword, true, true);
         }
     }
 });
 
-//@ts-ignore
-world.beforeEvents.playerPlaceBlock.subscribe(
-    /**@param {{
-     *     block :Block;
-     *     cancel :boolean;
-     *     dimension :Dimension;
-     *     face :Direction;
-     *     faceLocation :import("@minecraft/server").Vector3;
-     *     permutationBeingPlaced :BlockPermutation;
-     *     player :Player;
-     * }} data*/
-    data=>{
-        if(data.permutationBeingPlaced.type.id !== "minecraft:water"){
-            resetPassword(data.block);
-            if(data.block.above(1)) resetPassword(/**@type {Block}*/ (data.block.above(1)));
+//当双2B门的一个门已锁，另一个门被交互到双2B门一起的状态时，给另一个2B门也上锁，与现实中的双开门锁门操作十分相似
+world.afterEvents.playerInteractWithBlock.subscribe(data=>{
+    if(is2BDoor(data.block)){
+        const
+            upperBlock = /**@type {Block}*/ (data.block.permutation.getState("upper_block_bit") ? data.block : data.block.above(1)),
+            theOtherDoor = getDouble2B(upperBlock);
+        if(!getPassword(upperBlock, false, true) && !getPassword(upperBlock, true, true) && theOtherDoor){
+            const
+                password = getPassword(theOtherDoor, false, true),
+                opassword = getPassword(theOtherDoor, true, true);
+            if(password) setPassword(upperBlock, password, false, true);
+            else if(opassword) setPassword(upperBlock, opassword, true, true);
         }
     }
-);
+});
+
+//处理爆炸炸毁/改变状态的所有门。
+world.beforeEvents.explosion.subscribe(data=>{
+    //风弹就是需要破锁，刚好它被认为是可以“影响”东西的爆炸，那就不需要判定
+    //但是基于设计，风弹是“暴力”破锁，风爆重锤锤击不是“暴力”，目前的判定法是存在data.source，可能有bug！
+    //9.28 note: 如果栅栏门被吹开，那么就只能解锁，因为栅栏门设计的是开启的时候不能被锁
+    const blocks = data.getImpactedBlocks();
+    for(let i = 0; i < blocks.length; i++){
+        const is2B = is2BDoor(blocks[i]), isFG = isFenceGate(blocks[i]), isTD = isTrapdoor(blocks[i]);
+        if(
+            (is2B || isFG || isTD) && data.source
+         || (isFG && /**@type {boolean}*/ !(blocks[i].permutation.getState("open_bit")))
+        ){
+            resetPassword(blocks[i], true);
+            if(is2B && /**@type {boolean}*/ !(blocks[i].permutation.getState("upper_block_bit"))) resetPassword(/**@type {Block}*/ (blocks[i].above(1)), true);
+        }
+    }
+});
+
+//处理破坏的所有门。
+world.beforeEvents.playerBreakBlock.subscribe(data=>{
+    if(is2BDoor(data.block) && /**@type {boolean}*/ !(data.block.permutation.getState("upper_block_bit"))) resetPassword(data.block.above(1), true);
+    else resetPassword(data.block, true);
+});
+
+//保底方法，在玩家放置方块的时候重置密码！
+world.beforeEvents.playerPlaceBlock.subscribe(data=>{
+    if(data.permutationBeingPlaced.type.id !== "minecraft:water"){
+        resetPassword(data.block, true);
+        //保底重置2B门的密码。2B门不在下面存储密码，并且可以保证放置2B门时，一定是先放置下半方块，所以直接取上面。
+        if(is2BDoor(data.permutationBeingPlaced.type.id)) resetPassword(/**@type {Block}*/ (data.block.above(1)), true);
+    }
+});
+//#endregion

@@ -1,6 +1,4 @@
-﻿//@ts-check
-
-/**概率相同地返回包含最小值和最大值之间的随机数字。
+﻿/**概率相同地返回包含最小值和最大值之间的随机数字。
  * @param {number} min 最小值。
  * @param {number} max 最大值。
  * @returns {number}

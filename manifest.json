@@ -6,9 +6,9 @@
     "header": {
         "name": "自定义命令",
         "description": "基岩之上服务器模组。提供服务器所有的命令功能。",
-        "min_engine_version": [ 1, 21, 20 ],
+        "min_engine_version": [ 1, 21, 30 ],
         "uuid": "03bdd0ea-7bfe-4645-8622-e6b984d79f6e",
-        "version": [ 1, 1, 0 ]
+        "version": [ 1, 2, 0 ]
     },
     "modules": [
         {
@@ -21,17 +21,21 @@
             "uuid": "9ccb122c-f901-4e37-8d23-aa3d6e7ea22c",
             "version": [ 1, 0, 0 ],
             "language": "javascript",
-            "entry": "scripts/main.js"
+            "entry": "scripts/index.js"
         }
     ],
     "dependencies": [
         {
             "module_name": "@minecraft/server",
-            "version": "1.14.0-beta"
+            "version": "1.15.0-beta"
         },
         {
             "module_name": "@minecraft/server-ui",
-            "version": "1.3.0-beta"
+            "version": "1.4.0-beta"
+        },
+        {
+            "module_name": "@minecraft/server-net",
+            "version": "1.0.0-beta"
         }
     ]
 }

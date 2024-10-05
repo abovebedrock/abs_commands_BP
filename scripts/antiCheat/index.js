@@ -1,5 +1,4 @@
-﻿//@ts-check
-import { dupeFixesInit } from "./dupeFixes";
+﻿import { dupeFixesInit } from "./dupeFixes";
 import { loopCommandsInit } from "./loopCommands";
 import { banInit } from "./ban";
 

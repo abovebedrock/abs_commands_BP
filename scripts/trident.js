@@ -1,5 +1,4 @@
-﻿//@ts-check
-import { registerCommand } from "./commandBase";
+﻿import { registerCommand } from "./commandBase";
 
 export function tridentInit(){}
 

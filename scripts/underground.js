@@ -1,5 +1,4 @@
-﻿//@ts-check
-import { prefix, registerCommand } from "./commandBase";
+﻿import { prefixs, registerCommand } from "./commandBase";
 import { undergroundData, statusTypes } from "./undergroundData";
 
 export function undergroundInit(){}
@@ -18,9 +17,9 @@ registerCommand({
         if(str === undefined){
             player.sendMessage(`\n§l——显示全部线路——`);
             for(let i = 0; i < undergroundData.lines.length; i++){
-                if(undergroundData.lines[i].length === 0) player.sendMessage(`${i + 1}号线：未规划`);
+                if(undergroundData.lines[i].length === 0) player.sendMessage(`${i + 1}号线： 未规划`);
                 else{
-                    let str = `§${undergroundData.lineColors[i]}${i + 1}号线：§f`;
+                    let str = `§${undergroundData.lineColors[i]}${i + 1}号线： §f`;
                     for(let j = 0; j < undergroundData.lines[i].length; j++){
                         const
                             id = undergroundData.lines[i][j],
@@ -32,8 +31,8 @@ registerCommand({
                 }
             }
             if(undergroundData.additionalInfo !== "") player.sendMessage(`注：${undergroundData.additionalInfo}`);
-            player.sendMessage(`线路颜色为其代表颜色，§l加粗§r§f的站点为换乘站（包括跨维度换乘），§c红色§f的站点为下界站，括号内的站点为未开通站。未开通站的站名可能在以后发生更改。了解详细站点信息，请输入${prefix}u <站名>；了解详细线路信息，请输入${prefix}u <线路编号>。`);
-            player.sendMessage(`数据更新时间：${undergroundData.updateTime}`);
+            player.sendMessage(`线路颜色为其代表颜色，§l加粗§r§f的站点为换乘站（包括跨维度换乘），§c红色§f的站点为下界站，括号内的站点为未开通站。未开通站的站名可能在以后发生更改。了解详细站点信息，请输入${prefixs[0]}u <站名>；了解详细线路信息，请输入${prefixs[0]}u <线路编号>。`);
+            player.sendMessage(`数据更新时间： ${undergroundData.updateTime}`);
         }
         else if(/^-?(?:(?:[1-9]\d*)|[0])$/.test(str)){
             const number = parseInt(str);
@@ -52,8 +51,8 @@ registerCommand({
                     }
                     player.sendMessage(str);
                     if(undergroundData.additionalInfo !== "") player.sendMessage(`注：${undergroundData.additionalInfo}`);
-                    player.sendMessage(`线路颜色为其代表颜色，§l加粗§r§f的站点为换乘站（包括跨维度换乘），§c红色§f的站点为下界站，括号内的站点为未开通站。未开通站的站名可能在以后发生更改。了解详细站点信息，请输入${prefix}u <站名>；了解详细线路信息，请输入${prefix}u <线路编号>。`);
-                    player.sendMessage(`数据更新时间：${undergroundData.updateTime}`);
+                    player.sendMessage(`线路颜色为其代表颜色，§l加粗§r§f的站点为换乘站（包括跨维度换乘），§c红色§f的站点为下界站，括号内的站点为未开通站。未开通站的站名可能在以后发生更改。了解详细站点信息，请输入${prefixs[0]}u <站名>；了解详细线路信息，请输入${prefixs[0]}u <线路编号>。`);
+                    player.sendMessage(`数据更新时间： ${undergroundData.updateTime}`);
                 }
             }
         }
@@ -72,7 +71,7 @@ registerCommand({
                     else player.sendMessage("本站无主世界站");
                     if(data.netherStatus) player.sendMessage(`下界站：${data.netherStatus}${data.netherStatus === statusTypes.operational ? `  坐标： (${data.netherCoordinate?.x},${data.netherCoordinate?.y},${data.netherCoordinate?.z})`: ""}`);
                     else player.sendMessage("本站无下界站");
-                    player.sendMessage(`\n了解详细站点信息，请输入${prefix}u <站名>；了解详细线路信息，请输入${prefix}u <线路编号>。`);
+                    player.sendMessage(`\n了解详细站点信息，请输入${prefixs[0]}u <站名>；了解详细线路信息，请输入${prefixs[0]}u <线路编号>。`);
                     return true;
                 }
             }

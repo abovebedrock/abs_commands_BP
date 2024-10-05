@@ -1,10 +1,10 @@
-﻿//@ts-check
-import { EntityComponentTypes, EntityEquippableComponent, EquipmentSlot, GameMode, Player, system, world } from "@minecraft/server";
+﻿import { EntityComponentTypes, EntityEquippableComponent, EquipmentSlot, GameMode, Player, system, world } from "@minecraft/server";
 import { registerCommand } from "./commandBase";
+import { dimensionLocalezhCN, getCoordinate } from "./common";
 
 export function deathCoordsInit(){}
 
-/**@type {Map<string, [string, import("@minecraft/server").Vector3>]}*/
+/**@type {Map<string, [string, import("@minecraft/server").Vector3]>}*/
 const deadPlayerLocations = new Map();
 
 registerCommand({
@@ -37,8 +37,9 @@ registerCommand({
 
 world.afterEvents.entityDie.subscribe(data=>{
     if(data.deadEntity.typeId === "minecraft:player"){
-        deadPlayerLocations.set(/**@type {Player}*/ (data.deadEntity).name, [data.deadEntity.dimension.id === "minecraft:overworld" ? "主世界" : data.deadEntity.dimension.id === "minecraft:nether" ? "下界" : "末地", data.deadEntity.location]);
-        console.log(`${/**@type {Player}*/ (data.deadEntity).name} died at (${data.deadEntity.location.x.toFixed(0)}, ${data.deadEntity.location.y.toFixed(0)}, ${data.deadEntity.location.z.toFixed(0)}) from ${data.damageSource.cause}, ${data.damageSource.damagingEntity?.typeId}, ${data.damageSource.damagingProjectile?.typeId}`);
+        const player = /**@type {Player}*/ (data.deadEntity), [coord, dimension] = getCoordinate(player);
+        deadPlayerLocations.set(player.name, [dimensionLocalezhCN.get(dimension.id), coord]);
+        console.log(`${player.name} died at (${Math.floor(coord.x)}, ${Math.floor(coord.y)}, ${Math.floor(coord.z)}) from ${data.damageSource.cause}${data.damageSource.damagingEntity ? `, ${data.damageSource.damagingEntity.typeId}` : ""}${data.damageSource.damagingProjectile ? `, ${data.damageSource.damagingProjectile.typeId}` : ""}`);
     }
 });
 
@@ -46,7 +47,7 @@ world.afterEvents.playerSpawn.subscribe(data=>{
     if(!data.initialSpawn && data.player.getDynamicProperty("eligibleForDeathCoord") === true){
         const info = deadPlayerLocations.get(data.player.name);
         deadPlayerLocations.delete(data.player.name);
-        if(info) data.player.sendMessage(`§4§l您死在了${info[0]}的(${Math.floor(info[1].x)}, ${Math.floor(info[1].y)}, ${Math.floor(info[1].z)})。`);
+        if(info) data.player.sendMessage(`§4§l您死在了${info[0]}的(${info[1].x}, ${info[1].y}, ${info[1].z})。`);
         else data.player.sendMessage("§e§l您死在了没有坐标的地方！");
     }
 });

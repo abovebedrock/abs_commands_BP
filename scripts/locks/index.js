@@ -1,5 +1,4 @@
-﻿//@ts-check
-import { doorLockInit } from "./doorLock";
+﻿import { doorLockInit } from "./doorLock";
 import { containerBlockLockInit } from "./containerBlockLock";
 import { registerCommand } from "../commandBase";
 
@@ -24,10 +23,18 @@ registerCommand({
         }
     ],
     callback: (_name, player, args)=>{
-        player.setDynamicProperty("hideSuccess", !args.showSuccess);
-        player.sendMessage(`成功${args.showSuccess ? "开启" : "关闭"}方块交互成功提示。`);
-        player.setDynamicProperty("hideFailure", !args.showFailure);
-        player.sendMessage(`成功${args.showFailure ? "开启" : "关闭"}方块交互失败提示。`);
+        let changed = false;
+        if(args.showSuccess !== undefined){
+            changed = true;
+            player.setDynamicProperty("hideSuccess", !args.showSuccess);
+            player.sendMessage(`成功${args.showSuccess ? "开启" : "关闭"}方块交互成功提示。`);
+        }
+        if(args.showFailure !== undefined){
+            changed = true;
+            player.setDynamicProperty("hideFailure", !args.showFailure);
+            player.sendMessage(`成功${args.showFailure ? "开启" : "关闭"}方块交互失败提示。`);
+        }
+        if(!changed) player.sendMessage("§c你没有指定任何设置参数。");
         return true;
     }
 });

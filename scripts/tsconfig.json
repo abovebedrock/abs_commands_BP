@@ -1,0 +1,12 @@
+﻿{
+    "compilerOptions": {
+      "target": "ES2023",
+      "lib": ["ES2023", "DOM"],
+      "checkJs": true,
+      "allowJs": true,
+      "module": "NodeNext",
+      "moduleResolution": "NodeNext",
+      "noEmit": true
+    },
+    "include": ["**/*.js"]
+}

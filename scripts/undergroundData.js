@@ -1,6 +1,4 @@
-﻿//@ts-check
-
-/**@enum {string}
+﻿/**@enum {string}
  * @readonly*/
 const statusTypes = {
    operational: "已建成", 
@@ -27,22 +25,23 @@ const statusTypes = {
  * }}
  * @readonly*/
 const undergroundData = {
-    updateTime: "2024.8.24",
+    updateTime: "2024.10.1",
     lines: [
-        [28, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-        [10, 5, 11, 12, 13, 14, 15, 16],
-        [17, 18, 19, 10, 7, 14],
+        [28, 1, 2, 3, 4, 5, 6, 7, 8],
+        [10, 5, 11, 12, 13, 14, 16, 15],
+        [17, 18, 19, 30, 10, 6, 14],
         [],
         [-20, -21, -10, -11, -22, -23, -24],
-        [-19, -21, -25, -26, -27]
+        [-28, -19, -21, -25, -26, -27],
+        [-28, -22, -9, -29]
     ],
-    lineColors: ["e", "9", "6", "", "c", "d"],
+    lineColors: ["e", "9", "6", "", "c", "d", "b"],
     additionalInfo: "3号线未开通。",
     stations: [
         {
             name: "雪山",
             interchange: false,
-            status: statusTypes.planning,
+            status: statusTypes.planned,
             coordinate: {
                 x: 0,
                 y: 0,
@@ -52,7 +51,7 @@ const undergroundData = {
         {
             name: "东山",
             interchange: false,
-            status: statusTypes.planned,
+            status: statusTypes.constructing,
             coordinate: {
                 x: 0,
                 y: 0,
@@ -91,7 +90,7 @@ const undergroundData = {
         },
         {
             name: "喉口",
-            interchange: false,
+            interchange: true,
             status: statusTypes.operational,
             coordinate: {
                 x: 81,
@@ -101,7 +100,7 @@ const undergroundData = {
         },
         {
             name: "出生点",
-            interchange: true,
+            interchange: false,
             status: statusTypes.operational,
             coordinate: {
                 x: -4,
@@ -110,7 +109,7 @@ const undergroundData = {
             }
         },
         {
-            name: "北岸",
+            name: "海角",
             interchange: false,
             status: statusTypes.planned,
             coordinate: {
@@ -122,7 +121,7 @@ const undergroundData = {
         {
             name: "蘑菇岛",
             interchange: false,
-            status: statusTypes.planning,
+            netherStatus: statusTypes.planning,
             coordinate: {
                 x: 0,
                 y: 0,
@@ -182,7 +181,7 @@ const undergroundData = {
             }
         },
         {
-            name: "带湾",
+            name: "双岛",
             interchange: false,
             status: statusTypes.planning,
             coordinate: {
@@ -254,7 +253,7 @@ const undergroundData = {
         },
         {
             name: "西海底神殿",
-            interchange: false,
+            interchange: true,
             netherStatus: statusTypes.planning,
             coordinate: {
                 x: 0,
@@ -314,6 +313,27 @@ const undergroundData = {
         },
         {
             name: "东北平原",
+            interchange: true,
+            status: statusTypes.planning,
+            netherStatus: statusTypes.planning,
+            coordinate: {
+                x: 0,
+                y: 0,
+                z: 0
+            }
+        },
+        {
+            name: "彼岸村庄",
+            interchange: false,
+            netherStatus: statusTypes.planning,
+            coordinate: {
+                x: 0,
+                y: 0,
+                z: 0
+            }
+        },
+        {
+            name: "百花峡",
             interchange: false,
             status: statusTypes.planning,
             coordinate: {

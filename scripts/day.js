@@ -1,5 +1,4 @@
-﻿//@ts-check
-import { system, world } from "@minecraft/server";
+﻿import { system, world } from "@minecraft/server";
 import { registerCommand } from "./commandBase";
 
 export function dayInit(){}
