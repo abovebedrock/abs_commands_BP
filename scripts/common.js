@@ -316,14 +316,14 @@ const containerIds = [
     "crafter",
     "brewing_stand",
     "ender_chest"
-];
+].map(value=>`minecraft:${value}`);
 
 /**判断是否为可以锁上的容器方块。
  * @param {Block} block
  * @returns {boolean}
  */
 export function isContainer(block){
-    try {return containerIds.includes(block.typeId.replace("minecraft:", "")) || /minecraft:.+_shulker_box/.test(block.typeId);}
+    try {return containerIds.includes(block.typeId) || /minecraft:.+_shulker_box/.test(block.typeId);}
     catch(e) {return false;}
 }
 //#endregion
