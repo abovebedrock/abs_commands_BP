@@ -6,9 +6,9 @@
     "header": {
         "name": "自定义命令",
         "description": "基岩之上服务器模组。提供服务器所有的命令功能。",
-        "min_engine_version": [ 1, 21, 30 ],
+        "min_engine_version": [ 1, 21, 42 ],
         "uuid": "03bdd0ea-7bfe-4645-8622-e6b984d79f6e",
-        "version": [ 1, 2, 1 ]
+        "version": [ 1, 2, 2 ]
     },
     "modules": [
         {
@@ -27,7 +27,7 @@
     "dependencies": [
         {
             "module_name": "@minecraft/server",
-            "version": "1.15.0-beta"
+            "version": "1.16.0-beta"
         },
         {
             "module_name": "@minecraft/server-ui",
