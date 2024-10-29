@@ -24,7 +24,8 @@ export const meta = {
  *     "Lyzyx99",
  *     "wjlfish",
  *     "gaobaisixi",
- *     "Cr3st_39"
+ *     "Cr3st39",
+ *     "Pikachu73382"
  * ]}*/
 export const absPlayerNames = [
     "LJM12914",
@@ -34,7 +35,8 @@ export const absPlayerNames = [
     "Lyzyx99",
     "wjlfish",
     "gaobaisixi",
-    "Cr3st_39"
+    "Cr3st39",
+    "Pikachu73382"
 ];
 //#endregion
 
