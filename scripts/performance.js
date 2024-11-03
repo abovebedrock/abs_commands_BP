@@ -46,7 +46,7 @@ async function getPing(time){
     return new Promise(async resolve=>{
         let totalPing = 0;
         for(let i = 0; i < (time ?? 5); i++){
-            const preTime = Date.now(), request = new HttpRequest("http://47.108.173.62/index.html");
+            const preTime = Date.now(), request = new HttpRequest("http://frp-mix.top");
             request.method = HttpRequestMethod.Head;
             request.addHeader("cache", "no-cache");
             const response = http.request(request), uselessVarForAsyncNeed = await response;
